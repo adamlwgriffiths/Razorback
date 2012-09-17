@@ -15,29 +15,29 @@ PyGLy's While PyGLy aims to provide a solid set of common OpenGL utilities (matr
 higher, providing utilities such as: mesh loading, spatial data structures, rendering helpers.
 
 Razorback currently features:
-	* Mesh loading (MD2, Wavefront OBJ)
+   * Mesh loading (MD2, Wavefront OBJ)
 
 Planned features
 ----------------
 
 In the future it is planned for the following to be added:
-	* More mesh formats:
-	* Spatial data-structures:
-		* Sparse Voxel Octree.
-	* Render helpers
-		* Sort by material.
+   * More mesh formats:
+   * Spatial data-structures:
+      * Sparse Voxel Octree.
+   * Render helpers
+   * Sort by material.
 
 Installation
 ------------
 
 Razorback requires the following software:
 
-	* Python 2
-	* Pyglet
-	* PIL
-	* Numpy
-	* [Pyrr](https://github.com/adamlwgriffiths/Pyrr)
-	* [PyGLy](https://github.com/adamlwgriffiths/PyGLy)
+   * Python 2
+   * Pyglet
+   * PIL
+   * Numpy
+   * [Pyrr](https://github.com/adamlwgriffiths/Pyrr)
+   * [PyGLy](https://github.com/adamlwgriffiths/PyGLy)
 
 Install dependencies
 ```
