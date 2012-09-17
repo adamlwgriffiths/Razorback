@@ -9,18 +9,14 @@ PyGLy's goals were simple, to provide a solid, flexible set of features that are
 
 Razorback takes things a step further, remaining as flexible as possible whilest providing numerous higher level functions.
 
-Razorback is not an engine,
+Features
+--------
 
-PyGLy's While PyGLy aims to provide a solid set of common OpenGL utilities (matrices, viewports, cameras), Razorback aims
-higher, providing utilities such as: mesh loading, spatial data structures, rendering helpers.
-
-Razorback currently features:
    * Mesh loading (MD2, Wavefront OBJ)
 
 Planned features
 ----------------
 
-In the future it is planned for the following to be added:
    * More mesh formats:
    * Spatial data-structures:
       * Sparse Voxel Octree.
