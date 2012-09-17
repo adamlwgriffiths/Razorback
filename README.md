@@ -20,6 +20,7 @@ Razorback currently features:
 Planned features
 ----------------
 
+In the future it is planned for the following to be added:
 	* More mesh formats:
 	* Spatial data-structures:
 		* Sparse Voxel Octree.
