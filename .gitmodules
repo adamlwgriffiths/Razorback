@@ -1,0 +1,3 @@
+[submodule "contrib/gletools"]
+	path = contrib/gletools
+	url = git@github.com:adamlwgriffiths/GLETools.git
