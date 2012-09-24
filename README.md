@@ -34,11 +34,11 @@ Razorback requires the following software:
    * Numpy
    * [Pyrr](https://github.com/adamlwgriffiths/Pyrr)
    * [PyGLy](https://github.com/adamlwgriffiths/PyGLy)
+   * [PyMesh](https://github.com/adamlwgriffiths/PyMesh)
 
 Install dependencies
 ```
 pip install -r requirements.txt
-pip install numpy pyglet pyrr pygly
 ```
 
 Install Razorback
