@@ -1,0 +1,8 @@
+#!/bin/bash
+# This hook is run after this virtualenv is activated.
+
+export PYTHONPATH=$WORKON_HOME/razorback/src/razorback
+export PYTHONPATH=$WORKON_HOME/razorback/src:$PYTHONPATH
+export PYTHONPATH=$WORKON_HOME/razorback/src/contrib/PyGLy:$PYTHONPATH
+export PYTHONPATH=$WORKON_HOME/razorback/src/contrib/Pyrr:$PYTHONPATH
+export PYTHONPATH=$WORKON_HOME/razorback/src/contrib/pyglet:$PYTHONPATH
