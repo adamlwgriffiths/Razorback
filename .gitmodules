@@ -7,3 +7,6 @@
 [submodule "contrib/PyGLy"]
 	path = contrib/PyGLy
 	url = git@github.com:adamlwgriffiths/PyGLy.git
+[submodule "contrib/PyMesh"]
+	path = contrib/PyMesh
+	url = git@github.com:adamlwgriffiths/PyMesh.git
