@@ -1,3 +1,9 @@
-[submodule "contrib/gletools"]
-	path = contrib/gletools
-	url = git@github.com:adamlwgriffiths/GLETools.git
+[submodule "contrib/pyglet"]
+	path = contrib/pyglet
+	url = git@github.com:adamlwgriffiths/Pyglet.git
+[submodule "contrib/Pyrr"]
+	path = contrib/Pyrr
+	url = git@github.com:adamlwgriffiths/Pyrr.git
+[submodule "contrib/PyGLy"]
+	path = contrib/PyGLy
+	url = git@github.com:adamlwgriffiths/PyGLy.git
