@@ -7,7 +7,7 @@ from pyglet.gl import *
 
 from pygly.shader import Shader
 
-from loader import Loader
+import pymesh.md2
 
 
 class Data( object ):
@@ -136,7 +136,7 @@ void main (void)
         self.shader.frag_location( 'fragColor' )
         self.shader.link()
 
-        self.md2 = Loader()
+        self.md2 = pymesh.md2.MD2()
         if filename != None:
             self.md2.load( filename )
         else:
@@ -156,7 +156,7 @@ void main (void)
 
     def _load( self ):
         """
-        Processes the data loaded by the MD2_Loader
+        Processes the data loaded by the MD2 Loader
         """
 
         self._load_vertex_buffers()
