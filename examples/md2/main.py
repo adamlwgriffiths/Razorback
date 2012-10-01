@@ -17,9 +17,11 @@ import pyglet.image
 
 from pygly.scene_node import SceneNode
 from pygly.render_callback_node import RenderCallbackNode
-from md2.mesh import MD2
 import pygly.sorter
+from pygly.texture import Texture
+import pygly.texture
 from pyrr import matrix44
+from md2.mesh import MD2
 
 from examples.core.application import CoreApplication
 
@@ -44,10 +46,18 @@ class MD2_Application( SimpleApplication ):
         # load our texture
         # use the PIL decoder as the pyglet one is broken
         # and loads most images as greyscale
-        self.texture = self.load_bmp(
-            #'examples/data/md2/sydney_h.bmp',
-            'examples/data/md2/colours.png',
+        self.texture = Texture( GL_TEXTURE_2D )
+        self.texture.bind()
+        self.texture.set_min_mag_filter(
+            min = GL_LINEAR,
+            mag = GL_LINEAR
             )
+        # load the image from PIL
+        # MD2 textures are inverted
+        image = Image.open('examples/data/md2/sydney.bmp')
+        image = image.transpose( Image.FLIP_TOP_BOTTOM )
+        pygly.texture.set_pil_texture_2d( image )
+        self.texture.unbind()
 
         # create a grid of cubes
         self.grid_root = SceneNode( 'grid_root' )
@@ -137,7 +147,7 @@ class MD2_Application( SimpleApplication ):
 
         # bind our diffuse texture
         glActiveTexture( GL_TEXTURE0 )
-        glBindTexture( GL_TEXTURE_2D, self.texture )
+        self.texture.bind()
 
         # iterate through our renderables
         for node, frame in zip(self.renderables, self.frames):
@@ -157,57 +167,12 @@ class MD2_Application( SimpleApplication ):
                 model_view = current_mv
                 )
 
-    def render_node( self, node, **kwargs ):
         glActiveTexture( GL_TEXTURE0 )
-        glBindTexture( GL_TEXTURE_2D, self.texture )
+        self.texture.unbind()
+
+    def render_node( self, node, **kwargs ):
         node.mesh.render( **kwargs )
 
-    def load_bmp( self, filename ):
-        # http://pyopengl.sourceforge.net/context/nehe6.html
-        im = Image.open( filename )
-
-        # get image meta-data (dimensions) and data
-        ix, iy = im.size[0], im.size[1]
-        image = im.tostring("raw", "RGB", 0, -1)
-
-        # generate a texture ID
-        texture = (GLuint)()
-        glGenTextures( 1, texture )
-
-        # bind the texture
-        glBindTexture( GL_TEXTURE_2D, texture )
-
-        glPixelStorei( GL_UNPACK_ALIGNMENT, 1 )
-
-        # copy the texture into the current texture ID
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,              # mip level
-            GL_RGB,        # internal format
-            ix,             # width
-            iy,             # height
-            0,              # border
-            #GL_RGBA,        # format
-            GL_RGB,        # format
-            GL_UNSIGNED_BYTE,   # type
-            image           # data
-            )
-
-        glTexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_MIN_FILTER,
-            GL_LINEAR
-            )
-        glTexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_MAG_FILTER,
-            GL_LINEAR
-            )
-
-        glBindTexture( GL_TEXTURE_2D, 0 )
-
-        return texture
-    
 
 def main():
     """Main function entry point.
