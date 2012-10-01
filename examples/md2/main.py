@@ -28,6 +28,11 @@ from examples.core.application import CoreApplication
 
 class MD2_Application( SimpleApplication ):
 
+    def setup_viewports( self ):
+        super( MD2_Application, self ).setup_viewports()
+
+        self.colours[ 0 ] = (1.0,1.0,1.0,1.0)
+
     def setup_scene( self ):
         """Creates the scene to be rendered.
         Creates our camera, scene graph, 
@@ -121,7 +126,7 @@ class MD2_Application( SimpleApplication ):
         """
         # setup the scene
         # rotate the scene nodes about their vertical axis
-        self.grid_root.transform.object.rotate_y( dt )
+        self.grid_root.transform.object.rotate_y( dt * 0.2 )
 
         # increment our frame
         fps = 10.0
