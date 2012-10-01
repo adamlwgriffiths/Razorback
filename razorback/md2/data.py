@@ -24,61 +24,8 @@ class Data( object ):
     """
 
     shader_source = {
-        'vert': """
-#version 150
-
-// inputs
-in vec3 in_position;
-in vec2 in_texture_coord;
-uniform mat4 model_view;
-uniform mat4 projection;
-
-uniform sampler1DArray verts1;
-uniform sampler1DArray verts2;
-uniform float fraction;
-
-// outputs
-out vec3 ex_normal;
-out vec2 ex_texture_coord;
-
-void main()
-{
-    // extract our vertex position from our textures
-    vec4 v1 = vec4( texelFetch( verts1, ivec2(gl_VertexID,0), 0 ).xyz, 1.0 );
-    vec4 v2 = vec4( texelFetch( verts2, ivec2(gl_VertexID,0), 0 ).xyz, 1.0 );
-    vec4 n1 = vec4( texelFetch( verts1, ivec2(gl_VertexID,1), 0 ).xyz, 1.0 );
-    vec4 n2 = vec4( texelFetch( verts2, ivec2(gl_VertexID,1), 0 ).xyz, 1.0 );
-
-    // interpolate position
-    vec4 v = mix( v1, v2, fraction );
-    gl_Position = projection * model_view * v;
-
-    // interpolate normals
-    ex_normal = normalize( mix( n1, n2, fraction ) ).xyz;
-
-    // update our texture coordinate
-    // we should include a texture matrix here
-    ex_texture_coord = in_texture_coord;
-}
-""",
-
-    'frag': """
-#version 150
-
-// inputs
-uniform sampler2DRect tex0;
-in vec3 ex_normal;
-in vec2 ex_texture_coord;
-
-// outputs
-out vec4 fragColor;
-
-void main (void)
-{
-    vec4 colour = texture( tex0, ex_texture_coord.st ) + vec4( 0.1, 0.1, 0.1, 0.0 );
-    fragColor = vec4( colour.rgb, 1.0 );
-}
-"""
+        'vert': open(os.path.dirname(__file__) + '/md2.vert','r').read(),
+        'frag': open(os.path.dirname(__file__) + '/md2.frag','r').read()
     }
 
     _data = {}
@@ -139,7 +86,7 @@ void main (void)
             self.md2.load( filename )
         else:
             self.md2.load_from_buffer( buffer )
-
+        
         self._load()
 
     def __del__( self ):
@@ -151,8 +98,11 @@ void main (void)
         """
         Processes the data loaded by the MD2 Loader
         """
-
+        # convert the md2 data into data for the gpu
+        # first, load our vertex buffer objects
         self._load_vertex_buffers()
+        # convert our frame data into something we can
+        # upload to the gpu
         self._load_frame_data()
 
     def _load_vertex_buffers( self ):
@@ -248,7 +198,6 @@ void main (void)
                 frame.normals
                 )
 
-
     @property
     def num_frames( self ):
         return len( self.frames )
@@ -298,13 +247,13 @@ void main (void)
 
         glDrawArrays( GL_TRIANGLES, 0, self.num_verts )
 
-        # reset our state
-        glBindVertexArray( 0 )
-        self.shader.unbind()
-
         # unbind our textures
         v2.unbind()
         glActiveTexture( GL_TEXTURE1 )
         v1.unbind()
         glActiveTexture( GL_TEXTURE0 )
+
+        # reset our state
+        glBindVertexArray( 0 )
+        self.shader.unbind()
 
