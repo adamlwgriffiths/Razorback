@@ -6,6 +6,8 @@ import numpy
 from pyglet.gl import *
 
 from pygly.shader import Shader
+from pygly.texture import Texture
+import pygly.texture
 
 import pymesh.md2
 
@@ -145,11 +147,6 @@ void main (void)
         self._load()
 
     def __del__( self ):
-        frames = getattr( self, frames, None )
-        if frames:
-            for frame in frames:
-                glDeleteTextures( 1, frame[ 1 ].vertex_texture )
-                glDeleteTextures( 1, frame[ 1 ].normal_texture )
         vao = getattr( self, vao, None )
         if vao:
             glDeleteVertexArrays( 1, vao )
@@ -234,25 +231,12 @@ void main (void)
         # first convert to a 1D array
         # and then to GLubyte format
         data_view = data.view()
-        data_view.shape = -1
-        gl_data = (GLfloat * data_view.size)(*data_view.astype('float32') )
+        data_view.shape = (-1,3)
 
         # create a texture
-        texture = (GLuint)()
-        glGenTextures( 1, texture )
+        texture = Texture( GL_TEXTURE_1D )
+        texture.bind()
 
-        glBindTexture( GL_TEXTURE_1D, texture )
-
-        glTexImage1D(
-            GL_TEXTURE_1D,
-            0,              # mip level
-            GL_RGB32F,      # internal format
-            len(gl_data),   # width
-            0,              # border
-            GL_RGB,         # format
-            GL_FLOAT,       # type
-            gl_data,        # data
-            )
         # disable texture filtering
         glTexParameteri(
             GL_TEXTURE_1D,
@@ -264,8 +248,22 @@ void main (void)
             GL_TEXTURE_MAG_FILTER,
             GL_NEAREST
             )
+        pygly.texture.set_raw_texture_1d( data_view )
 
-        glBindTexture( GL_TEXTURE_1D, 0 )
+        """
+        glTexImage1D(
+            GL_TEXTURE_1D,
+            0,              # mip level
+            GL_RGB32F,      # internal format
+            len(gl_data),   # width
+            0,              # border
+            GL_RGB,         # format
+            GL_FLOAT,       # type
+            gl_data,        # data
+            )
+        """
+
+        texture.unbind()
 
         return texture
 
@@ -307,17 +305,20 @@ void main (void)
         # bind our textures
         # texture 0 is reserved for the model texture
         # this frame
-        target = GL_TEXTURE_1D
-        glActiveTexture( GL_TEXTURE1 )
-        glBindTexture( target, frames[ 0 ].vertex_texture )
-        glActiveTexture( GL_TEXTURE2 )
-        glBindTexture( target, frames[ 0 ].normal_texture )
+        v1 = frames[ 0 ].vertex_texture
+        v2 = frames[ 1 ].vertex_texture
+        n1 = frames[ 0 ].normal_texture
+        n2 = frames[ 1 ].normal_texture
 
-        # the next frame
+        # bind the 2 frames
+        glActiveTexture( GL_TEXTURE1 )
+        v1.bind()
+        glActiveTexture( GL_TEXTURE2 )
+        n1.bind()
         glActiveTexture( GL_TEXTURE3 )
-        glBindTexture( target, frames[ 1 ].vertex_texture )
+        v2.bind()
         glActiveTexture( GL_TEXTURE4 )
-        glBindTexture( target, frames[ 1 ].normal_texture )
+        n2.bind()
 
         # we don't bind the diffuse texture
         # this is up to the caller to allow
@@ -331,5 +332,14 @@ void main (void)
         # reset our state
         glBindVertexArray( 0 )
         self.shader.unbind()
+
+        # unbind our textures
+        n2.unbind()
+        glActiveTexture( GL_TEXTURE3 )
+        v2.unbind()
+        glActiveTexture( GL_TEXTURE2 )
+        n1.unbind()
+        glActiveTexture( GL_TEXTURE1 )
+        v1.unbind()
         glActiveTexture( GL_TEXTURE0 )
 
