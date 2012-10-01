@@ -33,10 +33,8 @@ in vec2 in_texture_coord;
 uniform mat4 model_view;
 uniform mat4 projection;
 
-uniform sampler1D verts1;
-uniform sampler1D verts2;
-uniform sampler1D norms1;
-uniform sampler1D norms2;
+uniform sampler1DArray verts1;
+uniform sampler1DArray verts2;
 uniform float fraction;
 
 // outputs
@@ -46,10 +44,10 @@ out vec2 ex_texture_coord;
 void main()
 {
     // extract our vertex position from our textures
-    vec4 v1 = vec4( texelFetch( verts1, gl_VertexID, 0 ).xyz, 1.0 );
-    vec4 v2 = vec4( texelFetch( verts2, gl_VertexID, 0 ).xyz, 1.0 );
-    vec4 n1 = vec4( texelFetch( norms1, gl_VertexID, 0 ).xyz, 1.0 );
-    vec4 n2 = vec4( texelFetch( norms2, gl_VertexID, 0 ).xyz, 1.0 );
+    vec4 v1 = vec4( texelFetch( verts1, ivec2(gl_VertexID,0), 0 ).xyz, 1.0 );
+    vec4 v2 = vec4( texelFetch( verts2, ivec2(gl_VertexID,0), 0 ).xyz, 1.0 );
+    vec4 n1 = vec4( texelFetch( verts1, ivec2(gl_VertexID,1), 0 ).xyz, 1.0 );
+    vec4 n2 = vec4( texelFetch( verts2, ivec2(gl_VertexID,1), 0 ).xyz, 1.0 );
 
     // interpolate position
     vec4 v = mix( v1, v2, fraction );
@@ -79,18 +77,9 @@ void main (void)
 {
     vec4 colour = texture( tex0, ex_texture_coord.st ) + vec4( 0.1, 0.1, 0.1, 0.0 );
     fragColor = vec4( colour.rgb, 1.0 );
-    //fragColor = vec4( 1.0, 1.0, 1.0, 1.0 );
 }
 """
     }
-
-    frame_layout = namedtuple(
-        'Frame',
-        [
-            'vertex_texture',
-            'normal_texture'
-            ]
-        )
 
     _data = {}
 
@@ -138,6 +127,13 @@ void main (void)
         self.shader.frag_location( 'fragColor' )
         self.shader.link()
 
+        # bind our uniform indices
+        self.shader.bind()
+        self.shader.uniformi( 'tex0', 0 )
+        self.shader.uniformi( 'verts1', 1 )
+        self.shader.uniformi( 'verts2', 2 )
+        self.shader.unbind()
+
         self.md2 = pymesh.md2.MD2()
         if filename != None:
             self.md2.load( filename )
@@ -147,7 +143,7 @@ void main (void)
         self._load()
 
     def __del__( self ):
-        vao = getattr( self, vao, None )
+        vao = getattr( self, 'vao', None )
         if vao:
             glDeleteVertexArrays( 1, vao )
 
@@ -207,71 +203,63 @@ void main (void)
         glBindVertexArray( 0 )
 
     def _load_frame_data( self ):
+        def create_texture_array( *data ):
+            # convert data to a  1D texture
+            # first convert to a 1D array
+            # and then to GLubyte format
+
+            # create a texture
+            texture = Texture( GL_TEXTURE_1D_ARRAY )
+            texture.bind()
+
+            # disable texture filtering
+            texture.set_min_mag_filter(
+                min = GL_NEAREST,
+                mag = GL_NEAREST
+                )
+
+            all_data = numpy.array( data )
+
+            # shape is num, width, channels
+            # we need it to be width, num, channels
+            # because the height (glTexImage2D) uses
+            # the height as the number of textures
+            # so change the data shape
+            all_data.shape = (
+                all_data.shape[ 1 ],
+                all_data.shape[ 0 ],
+                all_data.shape[ 2 ]
+                )
+
+            pygly.texture.set_raw_texture_2d(
+                all_data.astype( 'float32' ),
+                texture.target
+                )
+
+            texture.unbind()
+
+            return texture
+
         # convert the frames and store in our dict
         for frame in self.md2.frames:
             # convert our frame data into textures
-            vertex_texture = Data.create_1d_texture(
-                frame.vertices
-                )
-            normal_texture = Data.create_1d_texture(
+            self.frames[ frame.name ] = create_texture_array(
+                frame.vertices,
                 frame.normals
                 )
 
-            # store the frame
-            self.frames[ frame.name ] = Data.frame_layout._make(
-                [
-                    vertex_texture,
-                    normal_texture
-                    ]
-                )
-
-    @staticmethod
-    def create_1d_texture( data ):
-        # convert data to a  1D texture
-        # first convert to a 1D array
-        # and then to GLubyte format
-        data_view = data.view()
-        data_view.shape = (-1,3)
-
-        # create a texture
-        texture = Texture( GL_TEXTURE_1D )
-        texture.bind()
-
-        # disable texture filtering
-        glTexParameteri(
-            GL_TEXTURE_1D,
-            GL_TEXTURE_MIN_FILTER,
-            GL_NEAREST
-            )
-        glTexParameteri(
-            GL_TEXTURE_1D,
-            GL_TEXTURE_MAG_FILTER,
-            GL_NEAREST
-            )
-        pygly.texture.set_raw_texture_1d( data_view )
-
-        """
-        glTexImage1D(
-            GL_TEXTURE_1D,
-            0,              # mip level
-            GL_RGB32F,      # internal format
-            len(gl_data),   # width
-            0,              # border
-            GL_RGB,         # format
-            GL_FLOAT,       # type
-            gl_data,        # data
-            )
-        """
-
-        texture.unbind()
-
-        return texture
 
     @property
     def num_frames( self ):
         return len( self.frames )
 
     def render( self, frame, projection, model_view ):
+        # calculate the current and next frame
+        # and the blending fraction
+        fraction, frame_1 = math.modf( frame )
+        frame_2 = (frame_1 + 1.0) % len( self.frames )
+
+        # bind our shader and pass in our model view
         self.shader.bind()
         self.shader.uniform_matrixf(
             'model_view',
@@ -281,44 +269,25 @@ void main (void)
             'projection',
             projection.flat
             )
-
-        # bind our texture indices
-        self.shader.uniformi( 'tex0', 0 )
-        self.shader.uniformi( 'verts1', 1 )
-        self.shader.uniformi( 'norms1', 2 )
-        self.shader.uniformi( 'verts2', 3 )
-        self.shader.uniformi( 'norms2', 4 )
-
-        # bind the fraction time
-        fraction, frame_1 = math.modf( frame )
-        frame_2 = (frame_1 + 1.0) % len( self.frames )
-
+        # notify the shader of the blend amount
         self.shader.uniformf( 'fraction', fraction )
 
         # get our current frames
+        # convert our ordered dict from key:value to
+        # the order of frames
         frame_list = self.frames.items()
-        frames = (
-            frame_list[ int(frame_1) ][ 1 ],
-            frame_list[ int(frame_2) ][ 1 ]
-            )
 
         # bind our textures
         # texture 0 is reserved for the model texture
         # this frame
-        v1 = frames[ 0 ].vertex_texture
-        v2 = frames[ 1 ].vertex_texture
-        n1 = frames[ 0 ].normal_texture
-        n2 = frames[ 1 ].normal_texture
+        v1 = frame_list[ int(frame_1) ][ 1 ]
+        v2 = frame_list[ int(frame_2) ][ 1 ]
 
         # bind the 2 frames
         glActiveTexture( GL_TEXTURE1 )
         v1.bind()
         glActiveTexture( GL_TEXTURE2 )
-        n1.bind()
-        glActiveTexture( GL_TEXTURE3 )
         v2.bind()
-        glActiveTexture( GL_TEXTURE4 )
-        n2.bind()
 
         # we don't bind the diffuse texture
         # this is up to the caller to allow
@@ -334,11 +303,7 @@ void main (void)
         self.shader.unbind()
 
         # unbind our textures
-        n2.unbind()
-        glActiveTexture( GL_TEXTURE3 )
         v2.unbind()
-        glActiveTexture( GL_TEXTURE2 )
-        n1.unbind()
         glActiveTexture( GL_TEXTURE1 )
         v1.unbind()
         glActiveTexture( GL_TEXTURE0 )
