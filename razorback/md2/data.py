@@ -6,7 +6,7 @@ import numpy
 from pyglet.gl import *
 
 from pygly.shader import Shader
-from pygly.texture import Texture
+from pygly.texture import Texture2D
 import pygly.texture
 
 import pymesh.md2
@@ -159,9 +159,8 @@ class Data( object ):
             # and then to GLubyte format
 
             # create a texture
-            texture = Texture( GL_TEXTURE_1D_ARRAY )
+            texture = Texture2D( GL_TEXTURE_1D_ARRAY )
             texture.bind()
-
             # disable texture filtering
             texture.set_min_mag_filter(
                 min = GL_NEAREST,
@@ -175,17 +174,12 @@ class Data( object ):
             # because the height (glTexImage2D) uses
             # the height as the number of textures
             # so change the data shape
-            all_data.shape = (
-                all_data.shape[ 1 ],
-                all_data.shape[ 0 ],
-                all_data.shape[ 2 ]
+            shape = (all_data.shape[ 1 ], all_data.shape[ 0 ])
+            texture.set_image(
+                all_data.astype('float32').flat,
+                shape,
+                'f32/rgb/rgb32f'
                 )
-
-            pygly.texture.set_raw_texture_2d(
-                all_data.astype( 'float32' ),
-                texture.target
-                )
-
             texture.unbind()
 
             return texture

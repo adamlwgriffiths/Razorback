@@ -9,6 +9,7 @@ wrappers and is entirely managed through events.
 from pygly.examples.core.simple.main import SimpleApplication
 from pygly.examples.core.application import CoreApplication
 
+import os
 import math
 
 from PIL import Image
@@ -19,7 +20,7 @@ from pyglet.gl import *
 from pygly.scene_node import SceneNode
 from pygly.render_callback_node import RenderCallbackNode
 import pygly.sorter
-from pygly.texture import Texture
+from pygly.texture.pil import PIL_Texture2D
 import pygly.texture
 from pyrr import matrix44
 
@@ -51,7 +52,12 @@ class MD2_Application( SimpleApplication ):
         # load our texture
         # use the PIL decoder as the pyglet one is broken
         # and loads most images as greyscale
-        self.texture = Texture( GL_TEXTURE_2D )
+        path = os.path.join(
+            os.path.dirname( __file__ ),
+            '../data/md2/sydney.bmp'
+            )
+        image = Image.open( path )
+        self.texture = PIL_Texture2D( GL_TEXTURE_2D )
         self.texture.bind()
         self.texture.set_min_mag_filter(
             min = GL_LINEAR,
@@ -59,9 +65,7 @@ class MD2_Application( SimpleApplication ):
             )
         # load the image from PIL
         # MD2 textures are inverted
-        image = Image.open('razorback/examples/data/md2/sydney.bmp')
-        image = image.transpose( Image.FLIP_TOP_BOTTOM )
-        pygly.texture.set_pil_texture_2d( image )
+        self.texture.set_image( image, flip = False )
         self.texture.unbind()
 
         # create a grid of cubes
@@ -88,13 +92,18 @@ class MD2_Application( SimpleApplication ):
         # store a list of renderables
         self.renderables = []
 
+        path = os.path.join(
+            os.path.dirname( __file__ ),
+            '../data/md2/sydney.md2'
+            )
+
         for position in positions:
             node = RenderCallbackNode(
                 'node-%s' % position,
                 None,
                 self.render_node
                 )
-            node.mesh = MD2( 'razorback/examples/data/md2/sydney.md2' )
+            node.mesh = MD2( path )
             node.mesh.load()
 
             # attach to our scene graph
