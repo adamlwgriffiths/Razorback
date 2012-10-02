@@ -21,8 +21,9 @@ import pygly.sorter
 from pygly.texture import Texture
 import pygly.texture
 from pyrr import matrix44
-from md2.mesh import MD2
+from razorback.md2.mesh import MD2
 
+# pygly examples import
 from examples.core.application import CoreApplication
 
 
