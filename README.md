@@ -54,7 +54,7 @@ python razorback/examples/md2/main.py
 Usage
 -----------------------
 
-Check the 'examples' directory for for some example code.
+Check the 'razorback/examples' directory for for some example code.
 
 Development
 -----------------------
