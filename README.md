@@ -46,6 +46,11 @@ Install Razorback
 git clone git@github.com:adamlwgriffiths/Razorback.git
 ```
 
+Check that it worked!
+```
+python razorback/examples/md2/main.py
+```
+
 Usage
 -----------------------
 
