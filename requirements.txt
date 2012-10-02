@@ -1,5 +1,5 @@
 numpy
-pil
+pillow
 hg+https://pyglet.googlecode.com/hg/
 pyrr
 pygly
