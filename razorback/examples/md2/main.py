@@ -4,8 +4,10 @@ a viewport.
 Viewport is provided without any high level
 wrappers and is entirely managed through events.
 """
-# import this first
-from examples.core.simple.main import SimpleApplication
+# import this first to ensure pyglet is
+# setup for the OpenGL core profile
+from pygly.examples.core.simple.main import SimpleApplication
+from pygly.examples.core.application import CoreApplication
 
 import math
 
@@ -13,7 +15,6 @@ from PIL import Image
 import numpy
 import pyglet
 from pyglet.gl import *
-import pyglet.image
 
 from pygly.scene_node import SceneNode
 from pygly.render_callback_node import RenderCallbackNode
@@ -21,10 +22,8 @@ import pygly.sorter
 from pygly.texture import Texture
 import pygly.texture
 from pyrr import matrix44
-from razorback.md2.mesh import MD2
 
-# pygly examples import
-from examples.core.application import CoreApplication
+from razorback.md2.mesh import MD2
 
 
 class MD2_Application( SimpleApplication ):
@@ -60,7 +59,7 @@ class MD2_Application( SimpleApplication ):
             )
         # load the image from PIL
         # MD2 textures are inverted
-        image = Image.open('examples/data/md2/sydney.bmp')
+        image = Image.open('razorback/examples/data/md2/sydney.bmp')
         image = image.transpose( Image.FLIP_TOP_BOTTOM )
         pygly.texture.set_pil_texture_2d( image )
         self.texture.unbind()
@@ -95,7 +94,7 @@ class MD2_Application( SimpleApplication ):
                 None,
                 self.render_node
                 )
-            node.mesh = MD2( 'examples/data/md2/sydney.md2' )
+            node.mesh = MD2( 'razorback/examples/data/md2/sydney.md2' )
             node.mesh.load()
 
             # attach to our scene graph
