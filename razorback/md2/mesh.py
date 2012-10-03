@@ -9,7 +9,7 @@ from pygly.shader import Shader
 from pygly.gl import *
 
 from razorback.keyframe_mesh import KeyframeMesh
-from md2.data import Data
+from razorback.md2.data import Data
 
 
 class MD2( KeyframeMesh ):
