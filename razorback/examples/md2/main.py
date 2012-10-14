@@ -20,7 +20,7 @@ from pygly.texture.pil import PIL_Texture2D
 import pygly.texture
 from pyrr import matrix44
 
-from razorback.md2.mesh import MD2
+from razorback.md2 import MD2_Mesh
 
 
 class MD2_Application( SimpleApplication ):
@@ -99,7 +99,7 @@ class MD2_Application( SimpleApplication ):
                 None,
                 self.render_node
                 )
-            node.mesh = MD2( path )
+            node.mesh = MD2_Mesh( path )
             node.mesh.load()
 
             # attach to our scene graph
