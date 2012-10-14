@@ -1,8 +1,4 @@
-"""Demonstrates PyGLy's functionality.
-Renders a simple scene graph and controls
-a viewport.
-Viewport is provided without any high level
-wrappers and is entirely managed through events.
+"""Demonstrates MD2 loading, animation and rendering
 """
 # import this first to ensure pyglet is
 # setup for the OpenGL core profile
