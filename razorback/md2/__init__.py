@@ -309,8 +309,14 @@ class MD2_Mesh( KeyframeMesh ):
 
         This uses the standard MD2 frame rate definition
         If the frame rate differs, over-ride this function.
+        If the animation is outside the range of standard
+        animations, a default value of 7.0 is returned.
         """
-        return self.animation_frame_rate( self.animation )
+        anim = self.animation
+        if anim:
+            return self.animation_frame_rate( self.animation )
+        else:
+            return 7.0
 
     def animation_start_end_frame( self, animation ):
         return (
