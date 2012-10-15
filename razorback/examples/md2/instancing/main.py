@@ -158,7 +158,7 @@ class MD2_Application( SimpleApplication ):
             print 'Curren animation:', self.animation
 
         # this will trigger the draw event and buffer flip
-        super( SimpleApplication, self ).step( dt )
+        CoreApplication.step( self, dt )
 
     def render_scene( self, camera ):
         """Renders each renderable in the scene
