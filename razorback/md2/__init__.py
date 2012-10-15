@@ -197,12 +197,7 @@ class Data( object ):
     def num_frames( self ):
         return len( self.frames )
 
-    def render( self, frame, projection, model_view ):
-        # calculate the current and next frame
-        # and the blending fraction
-        fraction, frame_1 = math.modf( frame )
-        frame_2 = (frame_1 + 1.0) % len( self.frames )
-
+    def render( self, frame1, frame2, interpolation, projection, model_view ):
         # bind our shader and pass in our model view
         self.shader.bind()
         self.shader.uniform_matrixf(
@@ -214,7 +209,7 @@ class Data( object ):
             projection.flat
             )
         # notify the shader of the blend amount
-        self.shader.uniformf( 'fraction', fraction )
+        self.shader.uniformf( 'fraction', interpolation )
 
         # get our current frames
         # convert our ordered dict from key:value to
@@ -224,8 +219,8 @@ class Data( object ):
         # bind our textures
         # texture 0 is reserved for the model texture
         # this frame
-        v1 = frame_list[ int(frame_1) ][ 1 ]
-        v2 = frame_list[ int(frame_2) ][ 1 ]
+        v1 = frame_list[ frame1 ][ 1 ]
+        v2 = frame_list[ frame2 ][ 1 ]
 
         # bind the 2 frames
         glActiveTexture( GL_TEXTURE1 )
@@ -277,8 +272,10 @@ class MD2_Mesh( KeyframeMesh ):
         super( MD2_Mesh, self ).__init__()
         
         self.filename = filename
-        self.frame = 0.0
         self.data = None
+        self.frame_1 = 0
+        self.frame_2 = 0
+        self.interpolation = 0.0
 
     @property
     def num_frames( self ):
@@ -300,19 +297,17 @@ class MD2_Mesh( KeyframeMesh ):
         The animation name is taken from the standard MD2
         animation names and not from the MD2 file itself.
         """
-        current_frame = int(self.frame)
         for name, value in pymesh.md2.MD2.animations.items():
             if \
-                value[ 0 ] <= current_frame and \
-                value[ 1 ] >= current_frame:
+                value[ 0 ] <= self.frame_1 and \
+                value[ 1 ] >= self.frame_1:
                 return name
         # unknown animation
         return None
 
     @property
     def frame_name( self ):
-        current_frame = int(self.frame)
-        return self.data.md2.frames[ current_frame ].name
+        return self.data.md2.frames[ self.frame_1 ].name
 
     @property
     def frame_rate( self ):
@@ -343,5 +338,11 @@ class MD2_Mesh( KeyframeMesh ):
 
     def render( self, projection, model_view ):
         # TODO: bind our diffuse texture to TEX0
-        self.data.render( self.frame, projection, model_view )
+        self.data.render(
+            self.frame_1,
+            self.frame_2,
+            self.interpolation,
+            projection,
+            model_view
+            )
 
