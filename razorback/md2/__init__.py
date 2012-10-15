@@ -282,7 +282,51 @@ class MD2_Mesh( KeyframeMesh ):
 
     @property
     def num_frames( self ):
+        """Returns the number of keyframes.
+        """
         return self.data.num_frames
+
+    @property
+    def animations( self ):
+        """Returns the frame namesfor various animations.
+        """
+        return pymesh.md2.MD2.animations.keys()
+
+    @property
+    def animation( self ):
+        """Returns the name of the current animation.
+
+        This is determined by the current frame number.
+        The animation name is taken from the standard MD2
+        animation names and not from the MD2 file itself.
+        """
+        current_frame = int(self.frame)
+        for name, value in pymesh.md2.MD2.animations.items():
+            if \
+                value[ 0 ] <= current_frame and \
+                value[ 1 ] >= current_frame:
+                return name
+        # unknown animation
+        return None
+
+    @property
+    def frame_name( self ):
+        current_frame = int(self.frame)
+        return self.data.md2.frames[ current_frame ].name
+
+    @property
+    def frame_rate( self ):
+        """Returns the frames per second for the current animation.
+
+        This uses the standard MD2 frame rate definition
+        If the frame rate differs, over-ride this function.
+        """
+        return self.animation_frame_rate( self.animation )
+
+    def animation_frame_rate( self, animation ):
+        """Returns the frame rate for the specified animation
+        """
+        return pymesh.md2.MD2.animations[ animation ][ 2 ]
 
     def load( self ):
         """
