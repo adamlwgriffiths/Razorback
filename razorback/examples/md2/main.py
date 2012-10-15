@@ -119,6 +119,11 @@ class MD2_Application( SimpleApplication ):
             endpoint = False
             )
 
+        # create an array that will store our frame rates
+        self.frame_rate = numpy.zeros( len(self.renderables), dtype = numpy.float )
+
+        self.last_frame = ''
+
     def step( self, dt ):
         """Updates our scene and triggers the on_draw event.
         This is scheduled in our __init__ method and
@@ -133,14 +138,24 @@ class MD2_Application( SimpleApplication ):
         # rotate the scene nodes about their vertical axis
         self.grid_root.transform.object.rotate_y( dt * 0.2 )
 
+        # update our frame rates
+        self.frame_rate[:] = [ mesh_node.mesh.frame_rate for mesh_node in self.renderables ]
+
+
         # increment our frame
-        fps = 10.0
-        self.frames += dt * fps
+        #self.frames += dt * fps
+        self.frames += dt * self.frame_rate
         numpy.mod(
             self.frames,
             self.renderables[ 0 ].mesh.num_frames,
             self.frames
             )
+
+        # print the animation name of the first mesh
+        curr_anim = self.renderables[ 0 ].mesh.animation
+        if self.last_frame != curr_anim:
+            self.last_frame = curr_anim
+            print 'Curren animation:', self.last_frame
 
         # this will trigger the draw event and buffer flip
         super( SimpleApplication, self ).step( dt )
