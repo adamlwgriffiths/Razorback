@@ -262,12 +262,6 @@ class MD2_Mesh( KeyframeMesh ):
     def __init__( self, filename ):
         """
         Loads an MD2 from the specified file.
-
-        @param data: The MD2_Data object.
-        This is seperated from the MD2 mesh so that
-        you can have multiple meshes with a single
-        data source. That way you don't have to load
-        and store an MD2 multiple times.
         """
         super( MD2_Mesh, self ).__init__()
         
