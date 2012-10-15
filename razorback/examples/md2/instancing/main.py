@@ -122,7 +122,7 @@ class MD2_Application( SimpleApplication ):
         # create an array that will store our frame rates
         self.frame_rate = numpy.zeros( len(self.renderables), dtype = numpy.float )
 
-        self.last_frame = ''
+        self.animation = ''
 
     def step( self, dt ):
         """Updates our scene and triggers the on_draw event.
@@ -153,9 +153,9 @@ class MD2_Application( SimpleApplication ):
 
         # print the animation name of the first mesh
         curr_anim = self.renderables[ 0 ].mesh.animation
-        if self.last_frame != curr_anim:
-            self.last_frame = curr_anim
-            print 'Curren animation:', self.last_frame
+        if self.animation != curr_anim:
+            self.animation = curr_anim
+            print 'Curren animation:', self.animation
 
         # this will trigger the draw event and buffer flip
         super( SimpleApplication, self ).step( dt )
