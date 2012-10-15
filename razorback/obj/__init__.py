@@ -89,7 +89,7 @@ class Data( object ):
             if data not in bin:
                 # the vertex doesn't exist yet
                 # insert into our vertex bin
-                bin[ data ] = None
+                bin[ data ] = len(bin)
 
                 # convert our indices into actual data
                 v_index, tc_index, n_index = data
@@ -117,7 +117,7 @@ class Data( object ):
                     normals.extend( [0.0, 0.0, 0.0] )
 
             # return the new index
-            return bin.keys().index( data )
+            return bin[ data ]
 
 
         for mesh in self.obj.model.meshes:
