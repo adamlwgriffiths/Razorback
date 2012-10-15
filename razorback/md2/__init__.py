@@ -318,6 +318,12 @@ class MD2_Mesh( KeyframeMesh ):
         """
         return self.animation_frame_rate( self.animation )
 
+    def animation_start_end_frame( self, animation ):
+        return (
+            pymesh.md2.MD2.animations[ animation ][ 0 ],
+            pymesh.md2.MD2.animations[ animation ][ 1 ]
+            )
+
     def animation_frame_rate( self, animation ):
         """Returns the frame rate for the specified animation
         """
