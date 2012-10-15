@@ -50,7 +50,7 @@ class MD2_Application( SimpleApplication ):
         # and loads most images as greyscale
         path = os.path.join(
             os.path.dirname( __file__ ),
-            '../data/md2/sydney.bmp'
+            '../../data/md2/sydney.bmp'
             )
         image = Image.open( path )
         self.texture = PIL_Texture2D( GL_TEXTURE_2D )
@@ -90,7 +90,7 @@ class MD2_Application( SimpleApplication ):
 
         path = os.path.join(
             os.path.dirname( __file__ ),
-            '../data/md2/sydney.md2'
+            '../../data/md2/sydney.md2'
             )
 
         for position in positions:
@@ -183,8 +183,13 @@ class MD2_Application( SimpleApplication ):
                 model_view
                 )
 
+            fraction, frame1 = math.modf( frame )
+            frame2 = (frame1 + 1.0) % node.mesh.num_frames
+
             # update the frame
-            node.mesh.frame = frame
+            node.mesh.frame_1 = int(frame1)
+            node.mesh.frame_2 = int(frame2)
+            node.mesh.interpolation = fraction
 
             # render a cube
             node.render(
