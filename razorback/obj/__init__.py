@@ -110,7 +110,7 @@ class Data( object ):
                 # map our normals
                 # if no normal is present, insert 0.0, 0.0, 0.0
                 if n_index != None:
-                    normals.append(
+                    normals.extend(
                         list(self.obj.model.normals[ n_index ])
                         )
                 else:
