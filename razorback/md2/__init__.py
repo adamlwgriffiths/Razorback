@@ -1,6 +1,5 @@
 import os
 import math
-from collections import namedtuple, OrderedDict
 
 import numpy
 from pyglet.gl import *
@@ -63,23 +62,21 @@ class Data( object ):
         """
         super( Data, self ).__init__()
         
-        # remember the order frames are added
-        self.frames = OrderedDict([])
+        self.frame_textures = None
         self.vertex_list = None
+
         self.shader = Shader(
             vert = Data.shader_source['vert'],
             frag = Data.shader_source['frag']
             )
-        self.shader.attribute( 0, 'in_position' )
-        self.shader.attribute( 1, 'in_texture_coord' )
+        self.shader.attribute( 0, 'in_texture_coord' )
         self.shader.frag_location( 'fragColor' )
         self.shader.link()
 
         # bind our uniform indices
         self.shader.bind()
         self.shader.uniformi( 'tex0', 0 )
-        self.shader.uniformi( 'verts1', 1 )
-        self.shader.uniformi( 'verts2', 2 )
+        self.shader.uniformi( 'in_vertex_data', 1 )
         self.shader.unbind()
 
         self.md2 = pymesh.md2.MD2()
@@ -119,25 +116,13 @@ class Data( object ):
         self.vao = (GLuint)()
         glGenVertexArrays( 1, self.vao )
 
-        # create 2 vertex buffers
-        # 0 is position
-        # 1 is texture coordinates 
-        vbo = (GLuint * 2)()
-        glGenBuffers( 2, vbo )
-
         # load our buffers
         glBindVertexArray( self.vao )
 
-        # create our vertex position buffer
-        glBindBuffer( GL_ARRAY_BUFFER, vbo[ 0 ] )
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            vertices.nbytes,
-            (GLfloat * vertices.size)(*vertices),
-            GL_STATIC_DRAW
-            )
-        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0)
-        glEnableVertexAttribArray( 0 )
+        # create vertex buffer
+        # we only store texture coordinates 
+        vbo = (GLuint * 2)()
+        glGenBuffers( 2, vbo )
 
         # create our texture coordinates buffer
         glBindBuffer( GL_ARRAY_BUFFER, vbo[ 1 ] )
@@ -147,14 +132,15 @@ class Data( object ):
             (GLfloat * tcs.size)(*tcs),
             GL_STATIC_DRAW
             )
-        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 0, 0)
-        glEnableVertexAttribArray( 1 )
+        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 0, 0)
+        glEnableVertexAttribArray( 0 )
 
         # unbind our buffers
+        glBindBuffer( GL_ARRAY_BUFFER, 0 )
         glBindVertexArray( 0 )
 
     def _load_frame_data( self ):
-        def create_texture_array( *data ):
+        def create_texture_array( data ):
             # convert data to a  1D texture
             # first convert to a 1D array
             # and then to GLubyte format
@@ -162,22 +148,21 @@ class Data( object ):
             # create a texture
             texture = Texture2D( GL_TEXTURE_1D_ARRAY )
             texture.bind()
+
             # disable texture filtering
             texture.set_min_mag_filter(
                 min = GL_NEAREST,
                 mag = GL_NEAREST
                 )
 
-            all_data = numpy.array( data )
-
-            # shape is num, width, channels
-            # we need it to be width, num, channels
-            # because the height (glTexImage2D) uses
+            # shape is num_arrays, width
+            # we need it to be width, num_arrays
+            # because the glTexImage2D uses
             # the height as the number of textures
             # so change the data shape
-            shape = (all_data.shape[ 1 ], all_data.shape[ 0 ])
+            shape = (data.shape[ 1 ], data.shape[ 0 ])
             texture.set_image(
-                all_data.astype('float32').flat,
+                data.astype('float32').flat,
                 shape,
                 'f32/rgb/rgb32f'
                 )
@@ -185,48 +170,44 @@ class Data( object ):
 
             return texture
 
-        # convert the frames and store in our dict
-        for frame in self.md2.frames:
-            # convert our frame data into textures
-            self.frames[ frame.name ] = create_texture_array(
-                frame.vertices,
-                frame.normals
-                )
+        def extract_frame_data( frame ):
+            yield frame.vertices
+            yield frame.normals
+
+        # convert our frame data into textures
+        # concatenate all our frame data into a single array with
+        # the shape:
+        # num data arrays x data length x 3
+        frames = numpy.array([
+            data
+            for frame in self.md2.frames
+            for data in extract_frame_data( frame )
+            ])
+        self.frame_textures = create_texture_array( frames )
 
     @property
     def num_frames( self ):
-        return len( self.frames )
+        return len( self.md2.frames )
 
     def render( self, frame1, frame2, interpolation, projection, model_view ):
         # bind our shader and pass in our model view
         self.shader.bind()
         self.shader.uniform_matrixf(
-            'model_view',
+            'in_model_view',
             model_view.flat
             )
         self.shader.uniform_matrixf(
-            'projection',
+            'in_projection',
             projection.flat
             )
         # notify the shader of the blend amount
-        self.shader.uniformf( 'fraction', interpolation )
+        self.shader.uniformf( 'in_fraction', interpolation )
+        self.shader.uniformi( 'in_frame_1', frame1 )
+        self.shader.uniformi( 'in_frame_2', frame2 )
 
-        # get our current frames
-        # convert our ordered dict from key:value to
-        # the order of frames
-        frame_list = self.frames.items()
-
-        # bind our textures
-        # texture 0 is reserved for the model texture
-        # this frame
-        v1 = frame_list[ frame1 ][ 1 ]
-        v2 = frame_list[ frame2 ][ 1 ]
-
-        # bind the 2 frames
+        # bind the vertex data texture
         glActiveTexture( GL_TEXTURE1 )
-        v1.bind()
-        glActiveTexture( GL_TEXTURE2 )
-        v2.bind()
+        self.frame_textures.bind()
 
         # we don't bind the diffuse texture
         # this is up to the caller to allow
@@ -238,9 +219,7 @@ class Data( object ):
         glDrawArrays( GL_TRIANGLES, 0, self.num_verts )
 
         # unbind our textures
-        v2.unbind()
-        glActiveTexture( GL_TEXTURE1 )
-        v1.unbind()
+        self.frame_textures.unbind()
         glActiveTexture( GL_TEXTURE0 )
 
         # reset our state
