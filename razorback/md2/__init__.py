@@ -121,11 +121,11 @@ class Data( object ):
 
         # create vertex buffer
         # we only store texture coordinates 
-        vbo = (GLuint * 2)()
-        glGenBuffers( 2, vbo )
+        vbo = (GLuint)()
+        glGenBuffers( 1, vbo )
 
         # create our texture coordinates buffer
-        glBindBuffer( GL_ARRAY_BUFFER, vbo[ 1 ] )
+        glBindBuffer( GL_ARRAY_BUFFER, vbo )
         glBufferData(
             GL_ARRAY_BUFFER,
             tcs.nbytes,
