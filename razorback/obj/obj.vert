@@ -4,8 +4,8 @@
 in vec3 in_position;
 in vec2 in_texture_coord;
 in vec3 in_normal;
-uniform mat4 model_view;
-uniform mat4 projection;
+uniform mat4 in_model_view;
+uniform mat4 in_projection;
 
 // outputs
 out vec3 ex_normal;
@@ -14,7 +14,7 @@ out vec2 ex_texture_coord;
 void main()
 {
     // set our vertex position
-    gl_Position = projection * model_view * vec4(in_position, 1.0);
+    gl_Position = in_projection * in_model_view * vec4(in_position, 1.0);
 
     // set our normals normals
     ex_normal = in_normal;

@@ -50,7 +50,7 @@ class Data( object ):
         self.shader.attribute( 0, 'in_position' )
         self.shader.attribute( 1, 'in_texture_coord' )
         self.shader.attribute( 2, 'in_normal' )
-        self.shader.frag_location( 'fragColor' )
+        self.shader.frag_location( 'out_frag_colour' )
         self.shader.link()
 
         # bind our uniform indices
@@ -282,8 +282,8 @@ class Data( object ):
 
     def render( self, projection, model_view, groups ):
         self.shader.bind()
-        self.shader.uniform_matrixf( 'model_view', model_view.flat )
-        self.shader.uniform_matrixf( 'projection', projection.flat )
+        self.shader.uniform_matrixf( 'in_model_view', model_view.flat )
+        self.shader.uniform_matrixf( 'in_projection', projection.flat )
 
         glBindVertexArray( self.vao )
 
