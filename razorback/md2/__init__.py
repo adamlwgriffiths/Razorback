@@ -70,7 +70,7 @@ class Data( object ):
             frag = Data.shader_source['frag']
             )
         self.shader.attribute( 0, 'in_texture_coord' )
-        self.shader.frag_location( 'fragColor' )
+        self.shader.frag_location( 'out_frag_colour' )
         self.shader.link()
 
         # bind our uniform indices
