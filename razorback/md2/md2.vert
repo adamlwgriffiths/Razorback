@@ -1,7 +1,6 @@
 #version 150
 
 // inputs
-in vec2 in_texture_coord;
 uniform mat4 in_model_view;
 uniform mat4 in_projection;
 
@@ -9,6 +8,7 @@ uniform sampler1DArray in_vertex_data;
 uniform float in_fraction;
 uniform int in_frame_1;
 uniform int in_frame_2;
+in vec2 in_texture_coord;
 
 // outputs
 out vec3 ex_normal;
