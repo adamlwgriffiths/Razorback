@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 from pyglet.gl import *
 
-from pygly.shader import Shader
+from pygly.shader import Shader, ShaderProgram
 import pymesh.obj
 
 from razorback.mesh import Mesh
@@ -43,14 +43,20 @@ class Data( object ):
         self.meshes = {}
 
         # create our shader
-        self.shader = Shader(
-            vert = Data.shader_source['vert'],
-            frag = Data.shader_source['frag']
+        self.shader = ShaderProgram(
+            False,
+            Shader( GL_VERTEX_SHADER, Data.shader_source['vert'] ),
+            Shader( GL_FRAGMENT_SHADER, Data.shader_source['frag'] )
             )
+
+        # set our shader data
+        # we MUST do this before we link the shader
         self.shader.attribute( 0, 'in_position' )
         self.shader.attribute( 1, 'in_texture_coord' )
         self.shader.attribute( 2, 'in_normal' )
         self.shader.frag_location( 'out_frag_colour' )
+
+        # link the shader now
         self.shader.link()
 
         # bind our uniform indices

@@ -4,7 +4,7 @@ import math
 import numpy
 from pyglet.gl import *
 
-from pygly.shader import Shader
+from pygly.shader import Shader, ShaderProgram
 from pygly.texture import Texture2D
 import pygly.texture
 import pymesh.md2
@@ -65,12 +65,18 @@ class Data( object ):
         self.frame_textures = None
         self.vertex_list = None
 
-        self.shader = Shader(
-            vert = Data.shader_source['vert'],
-            frag = Data.shader_source['frag']
+        self.shader = ShaderProgram(
+            False,
+            Shader( GL_VERTEX_SHADER, Data.shader_source['vert'] ),
+            Shader( GL_FRAGMENT_SHADER, Data.shader_source['frag'] )
             )
+
+        # set our shader data
+        # we MUST do this before we link the shader
         self.shader.attribute( 0, 'in_texture_coord' )
         self.shader.frag_location( 'out_frag_colour' )
+
+        # link the shader now
         self.shader.link()
 
         # bind our uniform indices
