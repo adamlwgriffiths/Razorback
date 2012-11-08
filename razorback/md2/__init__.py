@@ -71,8 +71,10 @@ class Data( object ):
         """
         super( Data, self ).__init__()
         
-        self.frame_textures = None
-        self.vertex_list = None
+        self.frames = None
+        self.vao = None
+        self.tc_vbo = None
+        self.indice_vbo = None
 
         self.shader = ShaderProgram(
             False,
@@ -107,10 +109,27 @@ class Data( object ):
         self._load()
 
     def __del__( self ):
+        # free our vao
         vao = getattr( self, 'vao', None )
         if vao:
             glDeleteVertexArrays( 1, vao )
-        # TODO: free our frame vbos
+
+        # free our vbos
+        # texture coords
+        tcs = getattr( self, 'tc_vbo', None )
+        if tcs:
+            glDeleteBuffer( tcs )
+
+        # indices
+        indices = getattr( self, 'indice_vbo', None )
+        if indices:
+            glDeleteBuffer( indices )
+
+        # frames
+        frames = getattr( self, 'frames', None )
+        if frames:
+            for frame in frames:
+                glDeleteBuffer( frame )
 
     def _load( self ):
         """
@@ -133,9 +152,10 @@ class Data( object ):
         # one for indices
         vbos = (GLuint * 2)()
         glGenBuffers( len(vbos), vbos )
+        self.tc_vbo = vbos[ 0 ]
+        self.indice_vbo = vbos[ 1 ]
 
         # create our texture coordintes
-        self.tc_vbo = vbos[ 0 ]
         tcs = tcs.astype( 'float32' )
         glBindBuffer( GL_ARRAY_BUFFER, self.tc_vbo )
         glBufferData(
@@ -146,7 +166,6 @@ class Data( object ):
             )
 
         # create our index buffer
-        self.indice_vbo = vbos[ 1 ]
         indices = indices.astype( 'uint32' )
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.indice_vbo )
         glBufferData(
@@ -156,48 +175,35 @@ class Data( object ):
             GL_STATIC_DRAW
             )
 
-        # unbind our buffers
-        glBindVertexArray( 0 )
-        glBindBuffer( GL_ARRAY_BUFFER, 0 )
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
-
         def create_frame_data( vertices, normals ):
-            vbos = (GLuint * 2)()
-            glGenBuffers( 2, vbos )
+            vbo = (GLuint)()
+            glGenBuffers( 1, vbo )
 
-            # TODO: interleave these arrays
+            # interleave these arrays into a single array
+            array = numpy.empty( (len(vertices) * 2, 3), dtype = 'float32' )
+            array[::2] = vertices
+            array[1::2] = normals
 
-            vertices = vertices.astype( 'float32' )
-            glBindBuffer( GL_ARRAY_BUFFER, vbos[ 0 ] )
+            glBindBuffer( GL_ARRAY_BUFFER, vbo )
             glBufferData(
                 GL_ARRAY_BUFFER,
-                vertices.nbytes,
-                (GLfloat * vertices.size)(*vertices.flat),
+                array.nbytes,
+                (GLfloat * array.size)(*array.flat),
                 GL_STATIC_DRAW
                 )
 
-            normals = normals.astype( 'float32' )
-            glBindBuffer( GL_ARRAY_BUFFER, vbos[ 1 ] )
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                normals.nbytes,
-                (GLfloat * normals.size)(*normals.flat),
-                GL_STATIC_DRAW
-                )
+            return vbo
 
-            return tuple(vbos)
-
-        # convert our frame data into textures
-        # concatenate all our frame data into a single array with
-        # the shape:
-        # num data arrays x data length x 3
+        # convert our frame data into VBOs
         self.frames = [
             create_frame_data( frame.vertices, frame.normals )
             for frame in frames
             ]
 
-        # unbind any buffers
+        # unbind our buffers
+        glBindVertexArray( 0 )
         glBindBuffer( GL_ARRAY_BUFFER, 0 )
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
 
     @property
     def num_frames( self ):
@@ -215,32 +221,32 @@ class Data( object ):
         # multiple textures to be used per mesh instance
         frame1_data = self.frames[ frame1 ]
         frame2_data = self.frames[ frame2 ]
-        v1, v2 = frame1_data[ 0 ], frame2_data[ 0 ]
-        n1, n2 = frame1_data[ 1 ], frame2_data[ 1 ]
 
         # unbind the shader
         glBindVertexArray( self.vao )
 
+        vertex_size = 6 * 4
+        vertex_offset = 0 * 4
+        normal_offset = 3 * 4
+
         # frame 1
-        glBindBuffer( GL_ARRAY_BUFFER, v1 )
-        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glBindBuffer( GL_ARRAY_BUFFER, frame1_data )
         glEnableVertexAttribArray( 0 )
-        glBindBuffer( GL_ARRAY_BUFFER, n1 )
-        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 )
         glEnableVertexAttribArray( 1 )
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, vertex_size, vertex_offset )
+        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, vertex_size, normal_offset )
 
         # frame 2
-        glBindBuffer( GL_ARRAY_BUFFER, v2 )
-        glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glBindBuffer( GL_ARRAY_BUFFER, frame2_data )
         glEnableVertexAttribArray( 2 )
-        glBindBuffer( GL_ARRAY_BUFFER, n2 )
-        glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, 0, 0 )
         glEnableVertexAttribArray( 3 )
+        glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, vertex_size, vertex_offset )
+        glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, vertex_size, normal_offset )
 
         # texture coords
         glBindBuffer( GL_ARRAY_BUFFER, self.tc_vbo )
-        glVertexAttribPointer( 4, 2, GL_FLOAT, GL_FALSE, 0, 0 )
         glEnableVertexAttribArray( 4 )
+        glVertexAttribPointer( 4, 2, GL_FLOAT, GL_FALSE, 0, 0 )
 
         # indices
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.indice_vbo )
