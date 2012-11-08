@@ -1,3 +1,12 @@
+"""
+Improve using tips from here
+http://developer.apple.com/library/ios/#documentation/3DDrawing/Conceptual/OpenGLES_ProgrammingGuide/TechniquesforWorkingwithVertexData/TechniquesforWorkingwithVertexData.html
+
+* move frame data out of texture and back into vertex attributes
+* interleave vertex data
+* convert tu / tv to GL_SHORT / GL_UNSIGNED_SHORT
+"""
+
 import os
 import math
 
@@ -25,7 +34,7 @@ class Data( object ):
 
     shader_source = {
         'vert': open(os.path.dirname(__file__) + '/md2.vert','r').read(),
-        'frag': open(os.path.dirname(__file__) + '/md2.frag','r').read()
+        'frag': open(os.path.dirname(__file__) + '/md2.frag','r').read(),
     }
 
     _data = {}
@@ -73,7 +82,11 @@ class Data( object ):
 
         # set our shader data
         # we MUST do this before we link the shader
-        self.shader.attribute( 0, 'in_texture_coord' )
+        self.shader.attribute( 0, 'in_position_1' )
+        self.shader.attribute( 1, 'in_normal_1' )
+        self.shader.attribute( 2, 'in_position_2' )
+        self.shader.attribute( 3, 'in_normal_2' )
+        self.shader.attribute( 4, 'in_texture_coord' )
         self.shader.frag_location( 'out_frag_colour' )
 
         # link the shader now
@@ -82,7 +95,6 @@ class Data( object ):
         # bind our uniform indices
         self.shader.bind()
         self.shader.uniformi( 'tex0', 0 )
-        self.shader.uniformi( 'in_vertex_data', 1 )
         self.shader.unbind()
 
         self.md2 = pymesh.md2.MD2()
@@ -91,31 +103,22 @@ class Data( object ):
         else:
             self.md2.load_from_buffer( buffer )
         
+        # load into OpenGL
         self._load()
 
     def __del__( self ):
         vao = getattr( self, 'vao', None )
         if vao:
             glDeleteVertexArrays( 1, vao )
+        # TODO: free our frame vbos
 
     def _load( self ):
         """
-        Processes the data loaded by the MD2 Loader
+        Prepares the MD2 for rendering by OpenGL.
         """
-        # convert the md2 data into data for the gpu
-        # first, load our vertex buffer objects
-        self._load_vertex_buffers()
-        # convert our frame data into something we can
-        # upload to the gpu
-        self._load_frame_data()
+        indices, tcs, frames = pymesh.md2.MD2.process_vertices( self.md2 )
 
-    def _load_vertex_buffers( self ):
-        # generate a vertex and tc list
-        # we can ignore the normals for now
-        # as we will pass the normals in per-frame
-        self.num_verts = self.md2.frames[ 0 ].vertices.size / 3
-        vertices = self.md2.frames[ 0 ].vertices.flatten()
-        tcs = self.md2.tcs.flatten()
+        self.num_indices = len( indices )
 
         # create a vertex array object
         # and vertex buffer objects for our core data
@@ -125,71 +128,76 @@ class Data( object ):
         # load our buffers
         glBindVertexArray( self.vao )
 
-        # create vertex buffer
-        # we only store texture coordinates 
-        vbo = (GLuint)()
-        glGenBuffers( 1, vbo )
+        # create our vbo buffers
+        # one for texture coordinates
+        # one for indices
+        vbos = (GLuint * 2)()
+        glGenBuffers( len(vbos), vbos )
 
-        # create our texture coordinates buffer
-        glBindBuffer( GL_ARRAY_BUFFER, vbo )
+        # create our texture coordintes
+        self.tc_vbo = vbos[ 0 ]
+        tcs = tcs.astype( 'float32' )
+        glBindBuffer( GL_ARRAY_BUFFER, self.tc_vbo )
         glBufferData(
             GL_ARRAY_BUFFER,
             tcs.nbytes,
-            (GLfloat * tcs.size)(*tcs),
+            (GLfloat * tcs.size)(*tcs.flat),
             GL_STATIC_DRAW
             )
-        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 0, 0)
-        glEnableVertexAttribArray( 0 )
+
+        # create our index buffer
+        self.indice_vbo = vbos[ 1 ]
+        indices = indices.astype( 'uint32' )
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.indice_vbo )
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            indices.nbytes,
+            (GLuint * indices.size)(*indices.flat),
+            GL_STATIC_DRAW
+            )
 
         # unbind our buffers
-        glBindBuffer( GL_ARRAY_BUFFER, 0 )
         glBindVertexArray( 0 )
+        glBindBuffer( GL_ARRAY_BUFFER, 0 )
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
 
-    def _load_frame_data( self ):
-        def create_texture_array( data ):
-            # convert data to a  1D texture
-            # first convert to a 1D array
-            # and then to GLubyte format
+        def create_frame_data( vertices, normals ):
+            vbos = (GLuint * 2)()
+            glGenBuffers( 2, vbos )
 
-            # create a texture
-            texture = Texture2D( GL_TEXTURE_1D_ARRAY )
-            texture.bind()
+            # TODO: interleave these arrays
 
-            # disable texture filtering
-            texture.set_min_mag_filter(
-                min = GL_NEAREST,
-                mag = GL_NEAREST
+            vertices = vertices.astype( 'float32' )
+            glBindBuffer( GL_ARRAY_BUFFER, vbos[ 0 ] )
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                vertices.nbytes,
+                (GLfloat * vertices.size)(*vertices.flat),
+                GL_STATIC_DRAW
                 )
 
-            # shape is num_arrays, width
-            # we need it to be width, num_arrays
-            # because the glTexImage2D uses
-            # the height as the number of textures
-            # so change the data shape
-            shape = (data.shape[ 1 ], data.shape[ 0 ])
-            texture.set_image(
-                data.astype('float32').flat,
-                shape,
-                'f32/rgb/rgb32f'
+            normals = normals.astype( 'float32' )
+            glBindBuffer( GL_ARRAY_BUFFER, vbos[ 1 ] )
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                normals.nbytes,
+                (GLfloat * normals.size)(*normals.flat),
+                GL_STATIC_DRAW
                 )
-            texture.unbind()
 
-            return texture
-
-        def extract_frame_data( frame ):
-            yield frame.vertices
-            yield frame.normals
+            return tuple(vbos)
 
         # convert our frame data into textures
         # concatenate all our frame data into a single array with
         # the shape:
         # num data arrays x data length x 3
-        frames = numpy.array([
-            data
-            for frame in self.md2.frames
-            for data in extract_frame_data( frame )
-            ])
-        self.frame_textures = create_texture_array( frames )
+        self.frames = [
+            create_frame_data( frame.vertices, frame.normals )
+            for frame in frames
+            ]
+
+        # unbind any buffers
+        glBindBuffer( GL_ARRAY_BUFFER, 0 )
 
     @property
     def num_frames( self ):
@@ -198,38 +206,56 @@ class Data( object ):
     def render( self, frame1, frame2, interpolation, projection, model_view ):
         # bind our shader and pass in our model view
         self.shader.bind()
-        self.shader.uniform_matrixf(
-            'in_model_view',
-            model_view.flat
-            )
-        self.shader.uniform_matrixf(
-            'in_projection',
-            projection.flat
-            )
-        # notify the shader of the blend amount
+        self.shader.uniform_matrixf( 'in_model_view', model_view.flat )
+        self.shader.uniform_matrixf( 'in_projection', projection.flat )
         self.shader.uniformf( 'in_fraction', interpolation )
-        self.shader.uniformi( 'in_frame_1', frame1 )
-        self.shader.uniformi( 'in_frame_2', frame2 )
-
-        # bind the vertex data texture
-        glActiveTexture( GL_TEXTURE1 )
-        self.frame_textures.bind()
 
         # we don't bind the diffuse texture
         # this is up to the caller to allow
         # multiple textures to be used per mesh instance
+        frame1_data = self.frames[ frame1 ]
+        frame2_data = self.frames[ frame2 ]
+        v1, v2 = frame1_data[ 0 ], frame2_data[ 0 ]
+        n1, n2 = frame1_data[ 1 ], frame2_data[ 1 ]
 
         # unbind the shader
         glBindVertexArray( self.vao )
 
-        glDrawArrays( GL_TRIANGLES, 0, self.num_verts )
+        # frame 1
+        glBindBuffer( GL_ARRAY_BUFFER, v1 )
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 0 )
+        glBindBuffer( GL_ARRAY_BUFFER, n1 )
+        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 1 )
 
-        # unbind our textures
-        self.frame_textures.unbind()
-        glActiveTexture( GL_TEXTURE0 )
+        # frame 2
+        glBindBuffer( GL_ARRAY_BUFFER, v2 )
+        glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 2 )
+        glBindBuffer( GL_ARRAY_BUFFER, n2 )
+        glVertexAttribPointer( 3, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 3 )
+
+        # texture coords
+        glBindBuffer( GL_ARRAY_BUFFER, self.tc_vbo )
+        glVertexAttribPointer( 4, 2, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 4 )
+
+        # indices
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.indice_vbo )
+
+        glDrawElements(
+            GL_TRIANGLES,
+            self.num_indices,
+            GL_UNSIGNED_INT,
+            0
+            )
 
         # reset our state
         glBindVertexArray( 0 )
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
+        glBindBuffer( GL_ARRAY_BUFFER, 0 )
         self.shader.unbind()
 
 
