@@ -66,9 +66,13 @@ class MD5_Data( object ):
                 # we only support 4 bones per vertex
                 # this is so we can fit it into a vec4
                 if vertex.weight_count > 4:
-                    raise ValueError( 'Too many weights for vertex!' )
+                    raise ValueError( 'Too many weights for vertex! %i' % vertex.weight_count )
 
                 for weight_index in range( vertex.weight_count ):
+                    #if weight_index >= 4:
+                    #    print 'Too many weights for vertex! %i' % vertex.weight_count
+                    #    break
+
                     weight = mesh.weights[ vertex.start_weight + weight_index ]
                     joint = joints[ weight.joint ]
 
@@ -148,7 +152,7 @@ class MD5_Data( object ):
                         normal
                         )
 
-                    normals[ vert_index ] += ( rotated_position * weight.bias )
+                    normals[ vert_index ] += rotated_position * weight.bias
 
             return normals
 
@@ -249,8 +253,6 @@ class MD5_Data( object ):
                 GL_STATIC_DRAW
                 )
 
-            glBindVertexArray( 0 )
-
             return vbo_layout(
                 vao,
                 position_buffer,
@@ -272,7 +274,11 @@ class MD5_Data( object ):
                 prepared_mesh.bone_indices,
                 numpy.array( vanilla_mesh.tris, dtype = 'uint32' )
                 )
-            for vanilla_mesh, prepared_mesh, normals in zip( self.md5.meshes, prepared_meshes, prepared_normals )
+            for vanilla_mesh, prepared_mesh, normals in zip(
+                self.md5.meshes,
+                prepared_meshes,
+                prepared_normals
+                )
             ]
 
 
@@ -315,6 +321,84 @@ class MD5_Data( object ):
         # if the material has no extension
         # add .tga
         pass
+
+        # load the bones into a buffer
+        def process_bone_vertices():
+            return numpy.array(
+                [
+                    joint.position
+                    for joint in self.md5.joints
+                    ],
+                    dtype = 'float32'
+                )
+        def process_bone_indices():
+            indices = []
+
+            for index, joint in enumerate( self.md5.joints ):
+                if joint.parent >= 0:
+                    indices.append( index )
+                    indices.append( joint.parent )
+
+            return numpy.array( indices, dtype = 'uint32' )
+
+        bone_vertices = process_bone_vertices()
+        bone_indices = process_bone_indices()
+
+        def create_bone_vertex_buffers( vertices, indices ):
+            vbo_layout = namedtuple(
+                "Bone_VBOs",
+                [
+                    'vao',
+                    'positions',
+                    'indices',
+                    'num_indices'
+                    ]
+                )
+
+            vbos = (GLuint * 2)()
+            glGenBuffers( len(vbos), vbos )
+
+            position_buffer = vbos[ 0 ]
+            index_buffer = vbos[ 1 ]
+
+            # TODO: blend these vertex buffers into a single buffer
+
+            vao = (GLuint)()
+            glGenVertexArrays( 1, vao )
+            glBindVertexArray( vao )
+
+            # positions
+            glBindBuffer( GL_ARRAY_BUFFER, position_buffer )
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                vertices.nbytes,
+                (GLfloat * vertices.size)(*vertices.flat),
+                GL_STATIC_DRAW
+                )
+            glEnableVertexAttribArray( 0 )
+            glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+
+            glBindVertexArray( 0 )
+            glBindBuffer( GL_ARRAY_BUFFER, 0 )
+
+            # triangle indices
+            glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, index_buffer )
+            glBufferData(
+                GL_ELEMENT_ARRAY_BUFFER,
+                indices.nbytes,
+                (GLuint * indices.size)(*indices.flat),
+                GL_STATIC_DRAW
+                )
+
+            glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
+
+            return vbo_layout(
+                vao,
+                position_buffer,
+                index_buffer,
+                indices.size
+                )
+        self.bone_buffers = create_bone_vertex_buffers( bone_vertices, bone_indices )
 
     def load_animation( self, filename ):
         pass
@@ -375,21 +459,36 @@ class MD5_Mesh( Mesh ):
         self.shader.uniform_matrixf( 'in_model_view', model_view.flat )
         self.shader.uniform_matrixf( 'in_projection', projection.flat )
 
-        # bind our vertex attributes
-        for mesh in self.data.meshes:
-            # bind the mesh VAO
-            glBindVertexArray( mesh.vao )
-            glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mesh.indices )
+        if False:
+            # draw our skeleton
+            glBindVertexArray( self.data.bone_buffers.vao )
+            glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.data.bone_buffers.indices )
 
             # TODO: bind our diffuse texture to TEX0
 
             glDrawElements(
-                GL_TRIANGLES,
-                mesh.num_indices,
+                GL_LINES,
+                self.data.bone_buffers.num_indices,
                 GL_UNSIGNED_INT,
                 0
                 )
-            break
+
+        if True:
+            # bind our vertex attributes
+            for mesh in self.data.meshes:
+                # bind the mesh VAO
+                glBindVertexArray( mesh.vao )
+                glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mesh.indices )
+
+                # TODO: bind our diffuse texture to TEX0
+
+                glDrawElements(
+                    GL_TRIANGLES,
+                    mesh.num_indices,
+                    GL_UNSIGNED_INT,
+                    0
+                    )
+                #break
 
         # reset our state
         glBindVertexArray( 0 )
