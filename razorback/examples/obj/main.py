@@ -63,8 +63,7 @@ class OBJ_Application( SimpleApplication ):
         # store a list of renderables
         path = os.path.join(
             os.path.dirname( __file__ ),
-            #'../data/obj/humanoid_tri.obj'
-            '../data/obj/cessna.obj'
+            '../data/obj/capsule.obj'
             )
 
         self.mesh_node = RenderCallbackNode(
@@ -84,6 +83,10 @@ class OBJ_Application( SimpleApplication ):
         # scale the node
         self.mesh_node.transform.scale = 1.0
 
+        # create a list of groups to render
+        # by default, render all groups
+        # this may be in-efficient if data is contained in
+        # multiple groups
         self.groups = self.mesh_node.mesh.data.meshes.keys()
 
     def step( self, dt ):
