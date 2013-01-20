@@ -84,11 +84,12 @@ class Data( object ):
 
         # set our shader data
         # we MUST do this before we link the shader
-        self.shader.attribute( 0, 'in_position_1' )
-        self.shader.attribute( 1, 'in_normal_1' )
-        self.shader.attribute( 2, 'in_position_2' )
-        self.shader.attribute( 3, 'in_normal_2' )
-        self.shader.attribute( 4, 'in_texture_coord' )
+        self.shader.attributes.in_position_1 = 0
+        self.shader.attributes.in_normal_1 = 1
+        self.shader.attributes.in_position_2 = 2
+        self.shader.attributes.in_normal_2 = 3
+        self.shader.attributes.in_texture_coord = 4
+
         self.shader.frag_location( 'out_frag_colour' )
 
         # link the shader now
@@ -96,7 +97,7 @@ class Data( object ):
 
         # bind our uniform indices
         self.shader.bind()
-        self.shader.uniformi( 'tex0', 0 )
+        self.shader.uniforms.in_diffuse = 0
         self.shader.unbind()
 
         self.md2 = pymesh.md2.MD2()
@@ -135,7 +136,111 @@ class Data( object ):
         """
         Prepares the MD2 for rendering by OpenGL.
         """
-        indices, tcs, frames = pymesh.md2.MD2.process_vertices( self.md2 )
+        def process_vertices( md2 ):
+            """Processes MD2 data to generate a single set
+            of indices.
+
+            MD2 is an older format that has 2 sets of indices.
+            Vertex/Normal indices (md2.triangles.vertex_indices)
+            and Texture Coordinate indices (md2.triangles.tc_indices).
+
+            The problem is that modern 3D APIs don't like this.
+            OpenGL only allows a single set of indices.
+
+            We can either, extract the vertices, normals and
+            texture coordinates using the indices.
+            This will create a lot of data.
+
+            This function provides an alternative.
+            We iterate through the indices and determine if an index
+            has a unique vertex/normal and texture coordinate value.
+            If so, the index remains and the texture coordinate is moved
+            into the vertex index location in the texture coordinate array.
+
+            If not, a new vertex/normal/texture coordinate value is created
+            and the index is updated.
+
+            This function returns a tuple containing the following values.
+            (
+                [ new indices ],
+                [ new texture coordinate array ],
+                [ frame_layout( name, vertices, normals ) ]
+                )
+            """
+            # convert our vertex / tc indices to a single indice
+            # we iterate through our list and 
+            indices = []
+            frames = [
+                (
+                    frame.name,
+                    list(frame.vertices),
+                    list(frame.normals)
+                    )
+                for frame in md2.frames
+                ]
+
+            # set the size of our texture coordinate list to the
+            # same size as one of our frame's vertex lists
+            tcs = list( [[None, None]] * len(frames[ 0 ][ 1 ]) )
+
+            for v_index, tc_index in zip(
+                md2.triangles.vertex_indices,
+                md2.triangles.tc_indices,
+                ):
+
+                indice = v_index
+
+                if \
+                    tcs[ v_index ][ 0 ] == None and \
+                    tcs[ v_index ][ 1 ] == None:
+                    # no tc set yet
+                    # set ours
+                    tcs[ v_index ][ 0 ] = md2.tcs[ tc_index ][ 0 ]
+                    tcs[ v_index ][ 1 ] = md2.tcs[ tc_index ][ 1 ]
+
+                elif \
+                    tcs[ v_index ][ 0 ] != md2.tcs[ tc_index ][ 0 ] and \
+                    tcs[ v_index ][ 1 ] != md2.tcs[ tc_index ][ 1 ]:
+
+                    # a tc has been set and it's not ours
+                    # create a new indice
+                    indice = len( tcs )
+
+                    # add a new unique vertice
+                    for frame in frames:
+                        # vertex data
+                        frame[ 1 ].append( frame[ 1 ][ v_index ] )
+                        # normal data
+                        frame[ 2 ].append( frame[ 2 ][ v_index ] )
+                    # texture coordinate
+                    tcs.append(
+                        [
+                            md2.tcs[ tc_index ][ 0 ],
+                            md2.tcs[ tc_index ][ 1 ]
+                            ]
+                        )
+
+                # store the index
+                indices.append( indice )
+
+            # convert our frames to frame tuples
+            frame_tuples = [
+                pymesh.md2.MD2.frame_layout(
+                    frame[ 0 ],
+                    numpy.array( frame[ 1 ], dtype = numpy.float ),
+                    numpy.array( frame[ 2 ], dtype = numpy.float )
+                    )
+                for frame in frames
+                ]
+
+            return (
+                numpy.array( indices ),
+                numpy.array( tcs ),
+                frame_tuples
+                )
+
+
+        indices, tcs, frames = process_vertices( self.md2 )
 
         self.num_indices = len( indices )
 
@@ -212,9 +317,9 @@ class Data( object ):
     def render( self, frame1, frame2, interpolation, projection, model_view ):
         # bind our shader and pass in our model view
         self.shader.bind()
-        self.shader.uniform_matrixf( 'in_model_view', model_view.flat )
-        self.shader.uniform_matrixf( 'in_projection', projection.flat )
-        self.shader.uniformf( 'in_fraction', interpolation )
+        self.shader.uniforms.in_model_view = model_view
+        self.shader.uniforms.in_projection = projection
+        self.shader.uniforms.in_fraction = interpolation
 
         # we don't bind the diffuse texture
         # this is up to the caller to allow
