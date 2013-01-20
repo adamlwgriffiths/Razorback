@@ -51,9 +51,9 @@ class Data( object ):
 
         # set our shader data
         # we MUST do this before we link the shader
-        self.shader.attribute( 0, 'in_position' )
-        self.shader.attribute( 1, 'in_texture_coord' )
-        self.shader.attribute( 2, 'in_normal' )
+        self.shader.attributes.in_position = 0
+        self.shader.attributes.in_texture_coord = 1
+        self.shader.attributes.in_normal = 2
         self.shader.frag_location( 'out_frag_colour' )
 
         # link the shader now
@@ -61,7 +61,7 @@ class Data( object ):
 
         # bind our uniform indices
         self.shader.bind()
-        self.shader.uniformi( 'tex0', 0 )
+        self.shader.uniforms.tex0 = 0
         self.shader.unbind()
 
         self.obj = pymesh.obj.OBJ()
@@ -263,6 +263,8 @@ class Data( object ):
             (GLfloat * len(vertices))(*vertices),
             GL_STATIC_DRAW
             )
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 0 )
 
         # create a VBO for our texture coordinates
         glBindBuffer( GL_ARRAY_BUFFER, self.vbo[ 1 ] )
@@ -272,6 +274,8 @@ class Data( object ):
             (GLfloat * len(texture_coords))(*texture_coords),
             GL_STATIC_DRAW
             )
+        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 1 )
 
         # create a VBO for our normals
         glBindBuffer( GL_ARRAY_BUFFER, self.vbo[ 2 ] )
@@ -281,6 +285,8 @@ class Data( object ):
             (GLfloat * len(normals))(*normals),
             GL_STATIC_DRAW
             )
+        glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 )
+        glEnableVertexAttribArray( 2 )
 
         # unbind our buffers
         glBindBuffer( GL_ARRAY_BUFFER, 0 )
@@ -288,26 +294,10 @@ class Data( object ):
 
     def render( self, projection, model_view, groups ):
         self.shader.bind()
-        self.shader.uniform_matrixf( 'in_model_view', model_view.flat )
-        self.shader.uniform_matrixf( 'in_projection', projection.flat )
+        self.shader.uniforms.in_model_view = model_view
+        self.shader.uniforms.in_projection = projection
 
         glBindVertexArray( self.vao )
-
-        # bind our global data
-        # vertices
-        glBindBuffer( GL_ARRAY_BUFFER, self.vbo[ 0 ] )
-        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, 0 )
-        glEnableVertexAttribArray( 0 )
-
-        # texture coords
-        glBindBuffer( GL_ARRAY_BUFFER, self.vbo[ 1 ] )
-        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 0, 0 )
-        glEnableVertexAttribArray( 1 )
-
-        # normals
-        glBindBuffer( GL_ARRAY_BUFFER, self.vbo[ 2 ] )
-        glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, 0 )
-        glEnableVertexAttribArray( 2 )
 
         # iterate through the specified groups
         for group in groups:
@@ -340,11 +330,7 @@ class Data( object ):
                         points[ 1 ] + lines[ 1 ]
                         )
 
-        glDisableVertexAttribArray( 0 )
-        glDisableVertexAttribArray( 1 )
-        glDisableVertexAttribArray( 2 )
 
-        glBindBuffer( GL_ARRAY_BUFFER, 0 )
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
         glBindVertexArray( 0 )
 
