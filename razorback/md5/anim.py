@@ -1,9 +1,11 @@
 from collections import namedtuple
 
 import numpy
+from pyglet.gl import *
 
-from pymesh.md5.common import compute_quaternion_w
 from pyrr import quaternion
+from pyrr import matrix44
+from pymesh.md5.common import compute_quaternion_w
 
 
 class MD5_FrameSkeleton( object ):
@@ -21,10 +23,17 @@ class MD5_FrameSkeleton( object ):
         super( MD5_FrameSkeleton, self ).__init__()
 
         self.parents = None
+        self.matrices = None
+        # TODO: remove positions and orientations
         self.positions = None
         self.orientations = None
 
+        self.vbo = None
+        self.tbo = None
+
         self._build_frame_skeleton( md5, frame )
+        self._build_matrices( md5 )
+        self._create_vbos()
 
     @property
     def num_joints( self ):
@@ -44,23 +53,83 @@ class MD5_FrameSkeleton( object ):
         for index in range( self.num_joints ):
             yield self.joint( index )
 
-    def _build_frame_skeleton( self, md5, frame ):
-        self.parents = numpy.empty( md5.hierarchy.num_joints )
-        self.positions = numpy.empty( (md5.hierarchy.num_joints, 3) )
-        self.orientations = numpy.empty( (md5.hierarchy.num_joints, 4) )
+    def _create_vbos( self ):
+        # convert to opengl buffer
+        self.vbo = (GLuint)()
+        glGenBuffers( 1, self.vbo )
+        glBindBuffer( GL_TEXTURE_BUFFER, self.vbo )
+        glBufferData(
+            GL_TEXTURE_BUFFER,
+            self.matrices.nbytes,
+            (GLfloat * self.matrices.size)(*self.matrices.flat),
+            GL_STATIC_DRAW
+            )
+        # bind to a TBO
+        self.tbo = (GLuint)()
+        glGenTextures( 1, self.tbo )
+        glBindTexture( GL_TEXTURE_BUFFER, self.tbo )
+        glTexBuffer( GL_TEXTURE_BUFFER, GL_RGBA32F, self.vbo )
+
+        # unbind buffers
+        glBindBuffer( GL_TEXTURE_BUFFER, 0 )
+        glBindTexture( GL_TEXTURE_BUFFER, 0 )
+
+    def _build_matrices( self, md5 ):
+        self.matrices = numpy.empty( (md5.hierarchy.num_joints, 4, 4), dtype = 'float32' )
 
         for index in range( md5.hierarchy.num_joints ):
+            position = self.positions[ index ]
+            orientation = self.orientations[ index ]
+
+            # convert to a matrix
+            matrix = self.matrices[ index ]
+            matrix[:] = matrix44.multiply(
+                matrix44.create_from_quaternion( orientation ),
+                matrix44.create_from_translation( position )
+                #matrix44.create_from_translation( position ),
+                #matrix44.create_from_quaternion( orientation )
+                )
+
+    def _build_frame_skeleton( self, md5, frame ):
+        self.parents = numpy.empty( md5.hierarchy.num_joints, dtype = 'int' )
+        self.positions = numpy.empty( (md5.hierarchy.num_joints, 3), dtype = 'float32' )
+        self.orientations = numpy.empty( (md5.hierarchy.num_joints, 4), dtype = 'float32' )
+
+        for index in range( md5.hierarchy.num_joints ):
+            hierarchy_joint = md5.hierarchy.joint( index )
+            base_frame_joint = md5.base_frame.bone( index )
+
             self.parents[ index ] = md5.hierarchy.parent_indices[ index ]
 
+            # begin with the original base frame values
             position = self.positions[ index ]
-            position[:] = frame.positions[ index ].copy()
-            mask = (position == False)
-            position[ mask ] = md5.base_frame.positions[ index ][ mask ]
-
             orientation = self.orientations[ index ]
-            orientation[:] = frame.orientations[ index ].copy()
-            mask = (orientation == False)
-            orientation[ mask ] = md5.base_frame.orientations[ index ][ mask ]
+
+            position[:] = base_frame_joint.position
+            orientation[:] = base_frame_joint.orientation
+
+            # overlay with values from our frame
+            # we know which values to get from the joint's start_index
+            # and the joint's flag
+            frame_index = hierarchy_joint.start_index
+            if hierarchy_joint.flags & 1:
+                position[ 0 ] = frame.value( frame_index )
+                frame_index += 1
+            if hierarchy_joint.flags & 2:
+                position[ 1 ] = frame.value( frame_index )
+                frame_index += 1
+            if hierarchy_joint.flags & 4:
+                position[ 2 ] = frame.value( frame_index )
+                frame_index += 1
+            if hierarchy_joint.flags & 8:
+                orientation[ 0 ] = frame.value( frame_index )
+                frame_index += 1
+            if hierarchy_joint.flags & 16:
+                orientation[ 1 ] = frame.value( frame_index )
+                frame_index += 1
+            if hierarchy_joint.flags & 32:
+                orientation[ 2 ] = frame.value( frame_index )
+                frame_index += 1
 
             # compute the W component of the quaternion
             orientation[ 3 ] = compute_quaternion_w(
@@ -68,6 +137,10 @@ class MD5_FrameSkeleton( object ):
                 orientation[ 1 ],
                 orientation[ 2 ],
                 )
+
+            # parents should always be an bone we've
+            # previously calculated
+            assert self.parents[ index ] < index
 
             # check if the joint has a parent
             if self.parents[ index ] >= 0:
@@ -102,12 +175,10 @@ class MD5_AnimData( object ):
 
         self.load()
 
-    def _build_frame_skeletons( self ):
+    def load( self ):
         # fill in any missing frame data for each joint
         self.frames = [
             MD5_FrameSkeleton( self.md5, frame )
             for frame in self.md5.frames
             ]
 
-    def load( self ):
-        self._build_frame_skeletons()

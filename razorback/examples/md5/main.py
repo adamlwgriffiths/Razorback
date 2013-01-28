@@ -44,14 +44,15 @@ class MD5_Application( SimpleApplication ):
     def setup_viewports( self ):
         super( MD5_Application, self ).setup_viewports()
 
-        self.colours[ 0 ] = (1.0,1.0,1.0,1.0)
+        self.colours[ 0 ] = (0.5,0.5,0.5,1.0)
 
-    def setup_camera( self ):
-        super( MD5_Application, self ).setup_camera()
+    def setup_cameras( self ):
+        super( MD5_Application, self ).setup_cameras()
 
         # move the camera
         self.cameras[ 0 ].transform.inertial.translate(
-            [ 0.0,-3.0, 0.0 ]
+            #[ 0.0, 70.0, 100.0 ]
+            [ 0.0,-3.0, 10.0 ]
             )
         # tilt the camera downward
         self.cameras[ 0 ].transform.object.rotate_x( math.pi / 8.0 )
@@ -76,12 +77,6 @@ class MD5_Application( SimpleApplication ):
         self.grid_root = SceneNode( 'grid_root' )
         self.scene_node.add_child( self.grid_root )
 
-        # store a list of renderables
-        path = os.path.join(
-            os.path.dirname( __file__ ),
-            '../data/md5/boblampclean.md5mesh'
-            )
-
         self.mesh_node = RenderCallbackNode(
             'mesh',
             None,
@@ -91,8 +86,24 @@ class MD5_Application( SimpleApplication ):
         #self.mesh_node.transform.object.rotate_y( math.pi )
         self.mesh_node.transform.object.rotate_x( -math.pi * 0.5 )
 
-        self.mesh_node.mesh = MD5_Mesh( path )
+
+        # store a list of renderables
+        mesh_path = os.path.join(
+            os.path.dirname( __file__ ),
+            '../data/md5/boblampclean.md5mesh'
+            #'../data/md5/md5/cyberdemon/cyberdemon.md5mesh'
+            )
+
+        self.mesh_node.mesh = MD5_Mesh( mesh_path )
         self.mesh_node.mesh.load()
+
+        anim_path = os.path.join(
+            os.path.dirname( __file__ ),
+            '../data/md5/boblampclean.md5anim'
+            #'../data/md5/md5/cyberdemon/cyberdemon.md5mesh'
+            )
+
+        self.mesh_node.mesh.data.load_anim( anim_path )
 
         # attach to our scene graph
         self.grid_root.add_child( self.mesh_node )

@@ -41,9 +41,9 @@ class MD5_Data( object ):
         super( MD5_Data, self ).__init__()
 
         self.md5mesh = None
-        self.md5anims = []
+        self.md5anims = {}
         self.mesh = None
-        self.anims = []
+        self.anims = {}
 
         self.shader = ShaderProgram(
             False,
@@ -57,6 +57,7 @@ class MD5_Data( object ):
         self.shader.attributes.in_normal = 1
         self.shader.attributes.in_texture_coord = 2
         self.shader.attributes.in_bone_indices = 3
+        self.shader.attributes.in_bone_weights = 4
         self.shader.frag_location( 'out_frag_colour' )
 
         # link the shader now
@@ -65,37 +66,34 @@ class MD5_Data( object ):
         # bind our uniform indices
         self.shader.bind()
         self.shader.uniforms.in_diffuse = 0
-        self.shader.uniforms.in_bone_weights = 1
+        self.shader.uniforms.in_specular = 1
+        self.shader.uniforms.in_normal = 2
+        self.shader.uniforms.in_inverse_bone_matrices = 3
+        self.shader.uniforms.in_bone_joints = 4
         self.shader.unbind()
 
-    def load_mesh( self, filename = None, buffer = None ):
+    def load_mesh( self, filename ):
         if self.md5mesh:
             raise ValueError( 'MD5 already loaded' )
 
         self.md5mesh = pymesh.md5.MD5_Mesh()
-        if filename != None:
-            self.md5mesh.load( filename )
-        else:
-            self.md5mesh.load_from_buffer( buffer )
+        self.md5mesh.load( filename )
 
         # load into opengl
         self.mesh = MD5_MeshData( self.md5mesh )
 
-    def load_anim( self, filename = None, buffer = None ):
+    def load_anim( self, filename ):
         anim = pymesh.md5.MD5_Anim()
-        if filename != None:
-            anim.load( filename )
-        else:
-            anim.load_from_buffer( buffer )
-
-        # TODO: use a dictionary and give it a name
+        anim.load( filename )
+        self.md5anims[ filename ] = anim
         
         # load into opengl
-        self.anims.append( MD5_AnimData( anim ) )
+        #self.anims[ filename ] = MD5_AnimData( anim )
+        self.anims = MD5_AnimData( anim )
 
     def render( self, projection, model_view ):
         # bind our shader and pass in our model view
-        self.shader.bind()
+        #self.shader.bind()
         self.shader.uniforms.in_model_view = model_view
         self.shader.uniforms.in_projection = projection
 
@@ -150,6 +148,29 @@ class MD5_Mesh( Mesh ):
             self.data = None
             #MD5_Data.unload( self.filename )
 
+    count = 0
+    frame = 0
     def render( self, projection, model_view ):
+        self.data.shader.bind()
+
+        glActiveTexture( GL_TEXTURE3 )
+        glBindTexture( GL_TEXTURE_BUFFER, self.data.mesh.vbos.inverse_bone_matrices[ 1 ] )
+
+        glActiveTexture( GL_TEXTURE4 )
+        glBindTexture( GL_TEXTURE_BUFFER, self.data.anims.frames[ self.frame ].tbo )
+
+        glActiveTexture( GL_TEXTURE0 )
+
+        self.count += 1
+        if self.count == 100:
+            self.count = 0
+            self.frame += 1
+            if self.frame >= len(self.data.anims.frames):
+                self.frame = 0
+
+        # load a test frame
+        #self.data.shader.uniforms.in_bone_positions = self.data.anims.frames[ 0 ].positions
+        #self.data.shader.uniforms.in_bone_orientations = self.data.anims.frames[ 0 ].orientations
+
         self.data.render( projection, model_view )
 

@@ -26,6 +26,7 @@ class MD5_MeshData( object ):
             'tcs',
             'bone_indices',
             'bone_weights',
+            'inverse_bone_matrices',
             'indices'
             ]
         )
@@ -132,7 +133,7 @@ class MD5_MeshData( object ):
 
         return normals
 
-    def _generate_vbos( self, bindpose ):
+    def _generate_vbos( self, bindpose ):#, inverse_bone_matrices ):
         def fill_array_buffer( vbo, data, gltype ):
             glBindBuffer( GL_ARRAY_BUFFER, vbo )
             glBufferData(
@@ -144,7 +145,13 @@ class MD5_MeshData( object ):
 
         def fill_texture_buffer( vbo, tbo, data, gltype, textureType ):
             # fill BO normally
-            fill_array_buffer( vbo, data, gltype )
+            glBindBuffer( GL_TEXTURE_BUFFER, vbo )
+            glBufferData(
+                GL_TEXTURE_BUFFER,
+                data.nbytes,
+                (gltype * data.size)(*data.flat),
+                GL_STATIC_DRAW
+                )
             # bind our TBO
             glBindTexture( GL_TEXTURE_BUFFER, tbo )
             # link to our BO
@@ -161,27 +168,25 @@ class MD5_MeshData( object ):
 
         # load our vertex buffers
         # these are per-vertex values
-        vbos = (GLuint * 6)()
+        vbos = (GLuint * 7)()
         glGenBuffers( len(vbos), vbos )
         fill_array_buffer( vbos[ 0 ], bindpose.positions, GLfloat )
         fill_array_buffer( vbos[ 1 ], bindpose.normals, GLfloat )
         fill_array_buffer( vbos[ 2 ], bindpose.tcs, GLfloat )
         fill_array_buffer( vbos[ 3 ], bindpose.bone_indices, GLuint )
+        fill_array_buffer( vbos[ 4 ], bindpose.bone_weights, GLfloat )
 
-        # load our bone weights
-        # we use texture buffer objects
-        # this allows for random access to any value from any verte
-        # a texture buffer requires both, an array buffer AND a texture buffer
-        # the array buffer stores data, and the texture buffer is linked to it
+        # inverse bones
         tbo = (GLuint)()
         glGenTextures( 1, tbo )
-        fill_texture_buffer( vbos[ 4 ], tbo, bindpose.bone_weights, GLfloat, GL_RGBA32F )
+        fill_texture_buffer( vbos[ 5 ], tbo, bindpose.inverse_bone_matrices, GLfloat, GL_RGBA32F )
 
         # triangle indices
-        fill_index_buffer( vbos[ 5 ], bindpose.indices, GLuint )
+        fill_index_buffer( vbos[ 6 ], bindpose.indices, GLuint )
 
         # unbind
         glBindBuffer( GL_ARRAY_BUFFER, 0 )
+        glBindBuffer( GL_TEXTURE_BUFFER, 0 )
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
 
         return MD5_MeshData.bindpose_layout(
@@ -189,8 +194,9 @@ class MD5_MeshData( object ):
             vbos[ 1 ],
             vbos[ 2 ],
             vbos[ 3 ],
-            (vbos[ 4 ], tbo),
-            vbos[ 5 ]
+            vbos[ 4 ],
+            (vbos[ 5 ], tbo),
+            vbos[ 6 ]
             )
 
     def _generate_vaos( self, vbos ):
@@ -231,8 +237,10 @@ class MD5_MeshData( object ):
             glVertexAttribIPointer( 3, 4, GL_UNSIGNED_INT, GL_FALSE, 0, offset )
 
             # bone_weights
-            glActiveTexture( GL_TEXTURE1 )
-            glBindTexture( GL_TEXTURE_BUFFER, vbos.bone_weights[ 1 ] )
+            glBindBuffer( GL_ARRAY_BUFFER, vbos.bone_weights )
+            glEnableVertexAttribArray( 4 )
+            offset = calculate_offset( current_offset, 4, 4 )
+            glVertexAttribPointer( 4, 4, GL_FLOAT, GL_FALSE, 0, offset )
 
             current_offset += mesh.num_verts
 
@@ -256,8 +264,10 @@ class MD5_MeshData( object ):
             numpy.empty( (self.md5.num_verts, 4), dtype = 'int32' ),
             # bone_weights
             numpy.empty( (self.md5.num_verts, 4), dtype = 'float32' ),
+            # inverse bind pose matrices
+            numpy.empty( (self.md5.num_joints, 4, 4), dtype = 'float32' ),
             # indices
-            numpy.empty( (self.md5.num_tris, 3), dtype = 'uint32' ),
+            numpy.empty( (self.md5.num_tris, 3), dtype = 'uint32' )
             )
 
         current_vert_offset = 0
@@ -288,8 +298,8 @@ class MD5_MeshData( object ):
 
         return bindpose
 
-    def _generate_inverse_bind_pose_matrices( self ):
-        def generate_inverse_bone_matrix( joint ):
+    def _generate_inverse_bind_pose_matrices( self, bindpose ):
+        def generate_inverse_bone_matrix( joint, out ):
             """Generates the bind pose and stores the inverse matrix
             which is what is required for animation.
             """
@@ -297,30 +307,27 @@ class MD5_MeshData( object ):
             rotation = pyrr.matrix44.create_from_quaternion( joint.orientation )
             
             matrix = pyrr.matrix44.multiply( translation, rotation )
-            return pyrr.matrix44.inverse( matrix )
+            #return pyrr.matrix44.inverse( matrix )
+            out[:] = pyrr.matrix44.inverse( matrix )
 
         # generate our inverse bone matrices
-        return numpy.array(
-            [
-                generate_inverse_bone_matrix( joint )
-                for joint in self.md5.joints
-                ],
-            dtype = 'float32'
-            )
+        for joint, matrix in zip( self.md5.joints, bindpose.inverse_bone_matrices ):
+            generate_inverse_bone_matrix( joint, matrix )
 
     def load( self ):
         # prepare our mesh vertices
         # we need to put them into the bind pose position
         bindpose = self._generate_bind_pose()
 
+        # calculate the bone matrices
+        #inverse_bone_matrices = self._generate_inverse_bind_pose_matrices( bindpose )
+        self._generate_inverse_bind_pose_matrices( bindpose )
+
         # load into opengl
-        self.vbos = self._generate_vbos( bindpose )
+        self.vbos = self._generate_vbos( bindpose )#, inverse_bone_matrices )
 
         # create vaos for each mesh to simplify rendering
         self.vaos = self._generate_vaos( self.vbos )
-
-        # calculate the bone matrices
-        inverse_bone_matrices = self._generate_inverse_bind_pose_matrices()
 
         # check the shader material
         # if the material has no extension
