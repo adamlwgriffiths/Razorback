@@ -24,12 +24,13 @@ out vec2 ex_texture_coord;
 
 mat4 construct_matrix( samplerBuffer sampler, int weight_index )
 {
-    return mat4(
+    mat4 matrix = mat4(
         texelFetch( sampler, weight_index * 4 ),
         texelFetch( sampler, weight_index * 4 + 1 ),
         texelFetch( sampler, weight_index * 4 + 2 ),
         texelFetch( sampler, weight_index * 4 + 3 )
         );
+    return matrix;
 }
 
 mat4 get_bone_matrix( int weight_index )
@@ -37,9 +38,9 @@ mat4 get_bone_matrix( int weight_index )
     mat4 bone_mat = construct_matrix( in_bone_matrices, weight_index );
     mat4 inv_bone_mat = construct_matrix( in_inverse_bone_matrices, weight_index );
     return bone_mat * inv_bone_mat;
-    //return inv_bone_mat * bone_mat;
     //return inv_bone_mat;
     //return bone_mat;
+    //return inv_bone_mat * bone_mat;
 }
 
 void main()

@@ -285,17 +285,17 @@ class MD5_MeshData( object ):
         for mesh in self.md5.meshes:
             # generate the bind pose
             # and after that, use the bind pose to generate our normals
-            _positions, _tcs, _bone_indices, _bone_weights = self._prepare_submesh( mesh )
-            _normals = self._prepare_normals( mesh, _positions )
+            positions, tcs, bone_indices, bone_weights = self._prepare_submesh( mesh )
+            normals = self._prepare_normals( mesh, positions )
 
             # write to our arrays
             start, end = current_vert_offset, current_vert_offset + mesh.num_verts
 
-            bindpose.positions[ start : end ] = _positions
-            bindpose.normals[ start : end ] = _normals
-            bindpose.tcs[ start : end ] = _tcs
-            bindpose.bone_indices[ start : end ] = _bone_indices
-            bindpose.bone_weights[ start : end ] = _bone_weights
+            bindpose.positions[ start : end ] = positions
+            bindpose.normals[ start : end ] = normals
+            bindpose.tcs[ start : end ] = tcs
+            bindpose.bone_indices[ start : end ] = bone_indices
+            bindpose.bone_weights[ start : end ] = bone_weights
 
             # store our indices
             start, end = current_tri_offset, current_tri_offset + mesh.num_tris
@@ -316,16 +316,20 @@ class MD5_MeshData( object ):
             position_matrix = pyrr.matrix44.create_from_translation( joint.position )
             orientation_matrix = pyrr.matrix44.create_from_quaternion( joint.orientation )
             
-            matrix = pyrr.matrix44.multiply( position_matrix, orientation_matrix )
+            #matrix = pyrr.matrix44.multiply( position_matrix, orientation_matrix )
+            matrix = pyrr.matrix44.multiply( orientation_matrix, position_matrix )
+
             return pyrr.matrix44.inverse( matrix )
 
-        # inverse bind pose matrices
-        matrices = numpy.empty( (self.md5.num_joints, 4, 4), dtype = 'float32' )
-
         # generate our inverse bone matrices
-        for joint, matrix in zip( self.md5.joints, matrices ):
-            matrix[:] = generate_inverse_bone_matrix( joint )
-        return matrices
+        return numpy.array(
+            [
+                generate_inverse_bone_matrix( joint )
+                for joint in self.md5.joints
+                ],
+            dtype = 'float32'
+            )
+
 
     def load( self ):
         # prepare our mesh vertices

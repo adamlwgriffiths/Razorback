@@ -126,25 +126,31 @@ class MD5_FrameSkeleton( object ):
                 position[:] = parent.position + rotated_position;
 
                 # multiply our orientation by our parent's
-                rotated_orientation = pyrr.quaternion.cross( parent.orientation, orientation )
+                rotated_orientation = pyrr.quaternion.cross(
+                    parent.orientation,
+                    orientation
+                    )
 
                 # normalise our orientation
                 orientation[:] = pyrr.quaternion.normalise( rotated_orientation )
 
     def _build_matrices( self, md5 ):
-        def generate_joint_matrix( position, orientation, index ):
+        def generate_joint_matrix( position, orientation ):
             # convert joint position and orientation to a matrix
             position_matrix = pyrr.matrix44.create_from_translation( position )
             orientation_matrix = pyrr.matrix44.create_from_quaternion( orientation )
-            
-            return pyrr.matrix44.multiply( position_matrix, orientation_matrix )
 
-        self.matrices = numpy.empty( (md5.hierarchy.num_joints, 4, 4), dtype = 'float32' )
+            #return pyrr.matrix44.multiply( position_matrix, orientation_matrix )
+            return pyrr.matrix44.multiply( orientation_matrix, position_matrix )
 
-        for index, (position, orientation, matrix) in enumerate(
-            zip( self.positions, self.orientations, self.matrices )
-            ):
-            matrix[:] = generate_joint_matrix( position, orientation, index )
+        # generate our frame's joint matrices
+        self.matrices = numpy.array(
+            [
+                generate_joint_matrix( position, orientation )
+                for position, orientation in zip( self.positions, self.orientations )
+                ],
+            dtype = 'float32'
+            )
 
     def _create_vbos( self ):
         # convert to opengl buffer

@@ -7,6 +7,8 @@ import os
 
 from pyglet.gl import *
 
+import numpy
+
 from pygly.shader import Shader, ShaderProgram
 import pymesh.md5
 
@@ -141,6 +143,8 @@ class MD5_Mesh( Mesh ):
             self.data = MD5_Data()
             self.data.load_mesh( self.filename )
 
+        self.load_skeleton()
+
     def unload( self ):
         # FIXME: this will force unload all mesh data
         # just make it that when Data is destroyed it unloads itself
@@ -148,10 +152,117 @@ class MD5_Mesh( Mesh ):
             self.data = None
             #MD5_Data.unload( self.filename )
 
-    count = 0
-    frame = 0
-    def render( self, projection, model_view ):
-        self.data.shader.bind()
+    def load_skeleton( self ):
+
+        self.skeleton_shader = ShaderProgram(
+            False,
+            Shader( GL_VERTEX_SHADER,
+"""
+#version 150
+
+// inputs
+uniform mat4 in_model_view;
+uniform mat4 in_projection;
+
+uniform samplerBuffer in_inverse_bone_matrices;
+uniform samplerBuffer in_bone_matrices;
+
+mat4 construct_matrix( samplerBuffer sampler, int weight_index )
+{
+    mat4 matrix = mat4(
+        texelFetch( sampler, weight_index * 4 ),
+        texelFetch( sampler, weight_index * 4 + 1 ),
+        texelFetch( sampler, weight_index * 4 + 2 ),
+        texelFetch( sampler, weight_index * 4 + 3 )
+        );
+    return matrix;
+}
+
+mat4 get_bone_matrix( int weight_index )
+{
+    mat4 bone_mat = construct_matrix( in_bone_matrices, weight_index );
+    mat4 inv_bone_mat = construct_matrix( in_inverse_bone_matrices, weight_index );
+    return inverse(inv_bone_mat);
+    //return bone_mat * inv_bone_mat;
+    //return inv_bone_mat;
+    //return bone_mat;
+    //return inv_bone_mat * bone_mat;
+}
+
+void main()
+{
+    // construct our animation matrix
+    mat4 mat = get_bone_matrix( gl_VertexID );
+
+    // apply the animatio matrix to our bind pose vertex
+    gl_Position = in_projection * in_model_view * mat * vec4( 0.0, 0.0, 0.0, 1.0 );
+}
+
+"""
+),
+            Shader( GL_FRAGMENT_SHADER,
+"""
+#version 150
+
+// outputs
+out vec4 out_frag_colour;
+
+void main (void)
+{
+    out_frag_colour = vec4( 1.0, 1.0, 1.0, 1.0 );
+}
+
+"""
+)
+            )
+
+        # set our shader data
+        # we MUST do this before we link the shader
+        self.skeleton_shader.frag_location( 'out_frag_colour' )
+
+        # link the shader now
+        self.skeleton_shader.link()
+
+        # bind our uniform indices
+        self.skeleton_shader.bind()
+        self.skeleton_shader.uniforms.in_inverse_bone_matrices = 3
+        self.skeleton_shader.uniforms.in_bone_matrices = 4
+        self.skeleton_shader.unbind()
+
+        self.vao = (GLuint)()
+        glGenVertexArrays( 1, self.vao )
+
+        glBindVertexArray( self.vao )
+
+        self.ibo = (GLuint)()
+        glGenBuffers( 1, self.ibo )
+
+        # create a skeleton from our bones
+        lines = []
+        for index, joint in enumerate( self.data.md5mesh.joints ):
+            if joint.parent >= 0:
+                lines.append( [index, joint.parent] )
+            else:
+                lines.append( [index, index] )
+
+        self.np_lines = numpy.array( lines, dtype = 'uint32' )
+
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.ibo )
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            self.np_lines.nbytes,
+            (GLuint * self.np_lines.size)(*self.np_lines.flat),
+            GL_STATIC_DRAW
+            )
+
+        glBindVertexArray( 0 )
+
+    def render_skeleton( self, projection, model_view ):
+        self.skeleton_shader.bind()
+        self.skeleton_shader.uniforms.in_model_view = model_view
+        self.skeleton_shader.uniforms.in_projection = projection
+
+        glBindVertexArray( self.vao )
 
         glActiveTexture( GL_TEXTURE3 )
         glBindTexture( GL_TEXTURE_BUFFER, self.data.mesh.vbos.inverse_bone_matrices[ 1 ] )
@@ -161,16 +272,48 @@ class MD5_Mesh( Mesh ):
 
         glActiveTexture( GL_TEXTURE0 )
 
+        # bind our indices
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.ibo )
+
+        glDrawElements(
+            GL_LINES,
+            len(self.np_lines) * 2,
+            GL_UNSIGNED_INT,
+            0
+            )
+
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
+        glBindVertexArray( 0 )
+
+        self.skeleton_shader.unbind()
+
+    count = 0
+    frame = 0
+    def render( self, projection, model_view ):
         self.count += 1
-        if self.count == 100:
+        if self.count == 50:
             self.count = 0
             self.frame += 1
             if self.frame >= len(self.data.anims.frames):
                 self.frame = 0
 
-        # load a test frame
-        #self.data.shader.uniforms.in_bone_positions = self.data.anims.frames[ 0 ].positions
-        #self.data.shader.uniforms.in_bone_orientations = self.data.anims.frames[ 0 ].orientations
+        if True:
+            self.data.shader.bind()
 
-        self.data.render( projection, model_view )
+            glActiveTexture( GL_TEXTURE3 )
+            glBindTexture( GL_TEXTURE_BUFFER, self.data.mesh.vbos.inverse_bone_matrices[ 1 ] )
+
+            glActiveTexture( GL_TEXTURE4 )
+            glBindTexture( GL_TEXTURE_BUFFER, self.data.anims.frames[ self.frame ].tbo )
+
+            glActiveTexture( GL_TEXTURE0 )
+
+            # load a test frame
+            #self.data.shader.uniforms.in_bone_positions = self.data.anims.frames[ 0 ].positions
+            #self.data.shader.uniforms.in_bone_orientations = self.data.anims.frames[ 0 ].orientations
+
+            self.data.render( projection, model_view )
+
+        if False:
+            self.render_skeleton( projection, model_view )
 
