@@ -69,7 +69,7 @@ class MD5_Data( object ):
         self.shader.uniforms.in_specular = 1
         self.shader.uniforms.in_normal = 2
         self.shader.uniforms.in_inverse_bone_matrices = 3
-        self.shader.uniforms.in_bone_joints = 4
+        self.shader.uniforms.in_bone_matrices = 4
         self.shader.unbind()
 
     def load_mesh( self, filename ):

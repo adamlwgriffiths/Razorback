@@ -26,6 +26,18 @@ class MD5_MeshData( object ):
             'tcs',
             'bone_indices',
             'bone_weights',
+            'indices'
+            ]
+        )
+
+    buffer_objects = namedtuple(
+        'MD5_BufferObjects',
+        [
+            'positions',
+            'normals',
+            'tcs',
+            'bone_indices',
+            'bone_weights',
             'inverse_bone_matrices',
             'indices'
             ]
@@ -133,7 +145,7 @@ class MD5_MeshData( object ):
 
         return normals
 
-    def _generate_vbos( self, bindpose ):#, inverse_bone_matrices ):
+    def _generate_vbos( self, bindpose, inverse_bone_matrices ):
         def fill_array_buffer( vbo, data, gltype ):
             glBindBuffer( GL_ARRAY_BUFFER, vbo )
             glBufferData(
@@ -179,7 +191,7 @@ class MD5_MeshData( object ):
         # inverse bones
         tbo = (GLuint)()
         glGenTextures( 1, tbo )
-        fill_texture_buffer( vbos[ 5 ], tbo, bindpose.inverse_bone_matrices, GLfloat, GL_RGBA32F )
+        fill_texture_buffer( vbos[ 5 ], tbo, inverse_bone_matrices, GLfloat, GL_RGBA32F )
 
         # triangle indices
         fill_index_buffer( vbos[ 6 ], bindpose.indices, GLuint )
@@ -189,7 +201,7 @@ class MD5_MeshData( object ):
         glBindBuffer( GL_TEXTURE_BUFFER, 0 )
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
 
-        return MD5_MeshData.bindpose_layout(
+        return MD5_MeshData.buffer_objects(
             vbos[ 0 ],
             vbos[ 1 ],
             vbos[ 2 ],
@@ -264,8 +276,6 @@ class MD5_MeshData( object ):
             numpy.empty( (self.md5.num_verts, 4), dtype = 'int32' ),
             # bone_weights
             numpy.empty( (self.md5.num_verts, 4), dtype = 'float32' ),
-            # inverse bind pose matrices
-            numpy.empty( (self.md5.num_joints, 4, 4), dtype = 'float32' ),
             # indices
             numpy.empty( (self.md5.num_tris, 3), dtype = 'uint32' )
             )
@@ -298,33 +308,36 @@ class MD5_MeshData( object ):
 
         return bindpose
 
-    def _generate_inverse_bind_pose_matrices( self, bindpose ):
-        def generate_inverse_bone_matrix( joint, out ):
+    def _generate_inverse_bind_pose_matrices( self ):
+        def generate_inverse_bone_matrix( joint ):
             """Generates the bind pose and stores the inverse matrix
             which is what is required for animation.
             """
-            translation = pyrr.matrix44.create_from_translation( joint.position )
-            rotation = pyrr.matrix44.create_from_quaternion( joint.orientation )
+            position_matrix = pyrr.matrix44.create_from_translation( joint.position )
+            orientation_matrix = pyrr.matrix44.create_from_quaternion( joint.orientation )
             
-            matrix = pyrr.matrix44.multiply( translation, rotation )
-            #return pyrr.matrix44.inverse( matrix )
-            out[:] = pyrr.matrix44.inverse( matrix )
+            matrix = pyrr.matrix44.multiply( position_matrix, orientation_matrix )
+            return pyrr.matrix44.inverse( matrix )
+
+        # inverse bind pose matrices
+        matrices = numpy.empty( (self.md5.num_joints, 4, 4), dtype = 'float32' )
 
         # generate our inverse bone matrices
-        for joint, matrix in zip( self.md5.joints, bindpose.inverse_bone_matrices ):
-            generate_inverse_bone_matrix( joint, matrix )
+        for joint, matrix in zip( self.md5.joints, matrices ):
+            matrix[:] = generate_inverse_bone_matrix( joint )
+        return matrices
 
     def load( self ):
         # prepare our mesh vertices
         # we need to put them into the bind pose position
-        bindpose = self._generate_bind_pose()
+        bind_pose = self._generate_bind_pose()
 
         # calculate the bone matrices
         #inverse_bone_matrices = self._generate_inverse_bind_pose_matrices( bindpose )
-        self._generate_inverse_bind_pose_matrices( bindpose )
+        inverse_bind_pose = self._generate_inverse_bind_pose_matrices()
 
         # load into opengl
-        self.vbos = self._generate_vbos( bindpose )#, inverse_bone_matrices )
+        self.vbos = self._generate_vbos( bind_pose, inverse_bind_pose )
 
         # create vaos for each mesh to simplify rendering
         self.vaos = self._generate_vaos( self.vbos )

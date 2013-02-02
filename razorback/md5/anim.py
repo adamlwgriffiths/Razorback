@@ -3,8 +3,8 @@ from collections import namedtuple
 import numpy
 from pyglet.gl import *
 
-from pyrr import quaternion
-from pyrr import matrix44
+import pyrr.quaternion
+import pyrr.matrix44
 from pymesh.md5.common import compute_quaternion_w
 
 
@@ -31,6 +31,9 @@ class MD5_FrameSkeleton( object ):
         self.vbo = None
         self.tbo = None
 
+        self.load( md5, frame )
+
+    def load( self, md5, frame ):
         self._build_frame_skeleton( md5, frame )
         self._build_matrices( md5 )
         self._create_vbos()
@@ -53,44 +56,10 @@ class MD5_FrameSkeleton( object ):
         for index in range( self.num_joints ):
             yield self.joint( index )
 
-    def _create_vbos( self ):
-        # convert to opengl buffer
-        self.vbo = (GLuint)()
-        glGenBuffers( 1, self.vbo )
-        glBindBuffer( GL_TEXTURE_BUFFER, self.vbo )
-        glBufferData(
-            GL_TEXTURE_BUFFER,
-            self.matrices.nbytes,
-            (GLfloat * self.matrices.size)(*self.matrices.flat),
-            GL_STATIC_DRAW
-            )
-        # bind to a TBO
-        self.tbo = (GLuint)()
-        glGenTextures( 1, self.tbo )
-        glBindTexture( GL_TEXTURE_BUFFER, self.tbo )
-        glTexBuffer( GL_TEXTURE_BUFFER, GL_RGBA32F, self.vbo )
-
-        # unbind buffers
-        glBindBuffer( GL_TEXTURE_BUFFER, 0 )
-        glBindTexture( GL_TEXTURE_BUFFER, 0 )
-
-    def _build_matrices( self, md5 ):
-        self.matrices = numpy.empty( (md5.hierarchy.num_joints, 4, 4), dtype = 'float32' )
-
-        for index in range( md5.hierarchy.num_joints ):
-            position = self.positions[ index ]
-            orientation = self.orientations[ index ]
-
-            # convert to a matrix
-            matrix = self.matrices[ index ]
-            matrix[:] = matrix44.multiply(
-                matrix44.create_from_quaternion( orientation ),
-                matrix44.create_from_translation( position )
-                #matrix44.create_from_translation( position ),
-                #matrix44.create_from_quaternion( orientation )
-                )
-
     def _build_frame_skeleton( self, md5, frame ):
+        # we don't need to upload the parents values
+        # so just leave as 'int'
+        # the parent can be negative (root is -1), so it must be signed
         self.parents = numpy.empty( md5.hierarchy.num_joints, dtype = 'int' )
         self.positions = numpy.empty( (md5.hierarchy.num_joints, 3), dtype = 'float32' )
         self.orientations = numpy.empty( (md5.hierarchy.num_joints, 4), dtype = 'float32' )
@@ -135,7 +104,7 @@ class MD5_FrameSkeleton( object ):
             orientation[ 3 ] = compute_quaternion_w(
                 orientation[ 0 ],
                 orientation[ 1 ],
-                orientation[ 2 ],
+                orientation[ 2 ]
                 )
 
             # parents should always be an bone we've
@@ -148,7 +117,7 @@ class MD5_FrameSkeleton( object ):
 
                 # make this joint relative to the parent
                 # rotate our position by our parents
-                rotated_position = quaternion.apply_to_vector(
+                rotated_position = pyrr.quaternion.apply_to_vector(
                     parent.orientation,
                     position
                     )
@@ -157,10 +126,47 @@ class MD5_FrameSkeleton( object ):
                 position[:] = parent.position + rotated_position;
 
                 # multiply our orientation by our parent's
-                orientation[:] = quaternion.cross( parent.orientation, orientation )
+                rotated_orientation = pyrr.quaternion.cross( parent.orientation, orientation )
 
                 # normalise our orientation
-                orientation[:] = quaternion.normalise( orientation )
+                orientation[:] = pyrr.quaternion.normalise( rotated_orientation )
+
+    def _build_matrices( self, md5 ):
+        def generate_joint_matrix( position, orientation, index ):
+            # convert joint position and orientation to a matrix
+            position_matrix = pyrr.matrix44.create_from_translation( position )
+            orientation_matrix = pyrr.matrix44.create_from_quaternion( orientation )
+            
+            return pyrr.matrix44.multiply( position_matrix, orientation_matrix )
+
+        self.matrices = numpy.empty( (md5.hierarchy.num_joints, 4, 4), dtype = 'float32' )
+
+        for index, (position, orientation, matrix) in enumerate(
+            zip( self.positions, self.orientations, self.matrices )
+            ):
+            matrix[:] = generate_joint_matrix( position, orientation, index )
+
+    def _create_vbos( self ):
+        # convert to opengl buffer
+        self.vbo = (GLuint)()
+        glGenBuffers( 1, self.vbo )
+        glBindBuffer( GL_TEXTURE_BUFFER, self.vbo )
+        glBufferData(
+            GL_TEXTURE_BUFFER,
+            self.matrices.nbytes,
+            (GLfloat * self.matrices.size)(*self.matrices.flat),
+            GL_STATIC_DRAW
+            )
+        # bind to a TBO
+        self.tbo = (GLuint)()
+        glGenTextures( 1, self.tbo )
+        glBindTexture( GL_TEXTURE_BUFFER, self.tbo )
+        glTexBuffer( GL_TEXTURE_BUFFER, GL_RGBA32F, self.vbo )
+
+        # unbind buffers
+        glBindBuffer( GL_TEXTURE_BUFFER, 0 )
+        glBindTexture( GL_TEXTURE_BUFFER, 0 )
+
 
 
 class MD5_AnimData( object ):
