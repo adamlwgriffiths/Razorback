@@ -184,8 +184,8 @@ mat4 get_bone_matrix( int weight_index )
 {
     mat4 bone_mat = construct_matrix( in_bone_matrices, weight_index );
     mat4 inv_bone_mat = construct_matrix( in_inverse_bone_matrices, weight_index );
-    return inverse(inv_bone_mat);
-    //return bone_mat * inv_bone_mat;
+    //return inverse(inv_bone_mat);
+    return bone_mat * inv_bone_mat;
     //return inv_bone_mat;
     //return bone_mat;
     //return inv_bone_mat * bone_mat;
@@ -296,7 +296,7 @@ void main (void)
             if self.frame >= len(self.data.anims.frames):
                 self.frame = 0
 
-        if False:
+        if True:
             self.data.shader.bind()
 
             glActiveTexture( GL_TEXTURE3 )

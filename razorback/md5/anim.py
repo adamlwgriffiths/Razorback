@@ -64,75 +64,76 @@ class MD5_FrameSkeleton( object ):
         self.positions = numpy.empty( (md5.hierarchy.num_joints, 3), dtype = 'float32' )
         self.orientations = numpy.empty( (md5.hierarchy.num_joints, 4), dtype = 'float32' )
 
-        for index in range( md5.hierarchy.num_joints ):
-            hierarchy_joint = md5.hierarchy.joint( index )
-            base_frame_joint = md5.base_frame.bone( index )
+        for index, (hierarchy_joint, base_frame_joint) in enumerate(
+            zip( md5.hierarchy, md5.base_frame )
+            ):
+            # set the parent now as we can't set it in the named tuple
+            self.parents[ index ] = hierarchy_joint.parent
 
-            self.parents[ index ] = md5.hierarchy.parent_indices[ index ]
+            # get the current joint
+            joint = self.joint( index )
 
             # begin with the original base frame values
-            position = self.positions[ index ]
-            orientation = self.orientations[ index ]
-
-            position[:] = base_frame_joint.position
-            orientation[:] = base_frame_joint.orientation
+            joint.position[:] = base_frame_joint.position
+            joint.orientation[:] = base_frame_joint.orientation
 
             # overlay with values from our frame
             # we know which values to get from the joint's start_index
             # and the joint's flag
             frame_index = hierarchy_joint.start_index
             if hierarchy_joint.flags & 1:
-                position[ 0 ] = frame.value( frame_index )
+                joint.position[ 0 ] = frame.value( frame_index )
                 frame_index += 1
             if hierarchy_joint.flags & 2:
-                position[ 1 ] = frame.value( frame_index )
+                joint.position[ 1 ] = frame.value( frame_index )
                 frame_index += 1
             if hierarchy_joint.flags & 4:
-                position[ 2 ] = frame.value( frame_index )
+                joint.position[ 2 ] = frame.value( frame_index )
                 frame_index += 1
             if hierarchy_joint.flags & 8:
-                orientation[ 0 ] = frame.value( frame_index )
+                joint.orientation[ 0 ] = frame.value( frame_index )
                 frame_index += 1
             if hierarchy_joint.flags & 16:
-                orientation[ 1 ] = frame.value( frame_index )
+                joint.orientation[ 1 ] = frame.value( frame_index )
                 frame_index += 1
             if hierarchy_joint.flags & 32:
-                orientation[ 2 ] = frame.value( frame_index )
+                joint.orientation[ 2 ] = frame.value( frame_index )
                 frame_index += 1
 
             # compute the W component of the quaternion
-            orientation[ 3 ] = compute_quaternion_w(
-                orientation[ 0 ],
-                orientation[ 1 ],
-                orientation[ 2 ]
+            joint.orientation[ 3 ] = compute_quaternion_w(
+                joint.orientation[ 0 ],
+                joint.orientation[ 1 ],
+                joint.orientation[ 2 ]
                 )
 
             # parents should always be an bone we've
             # previously calculated
-            assert self.parents[ index ] < index
+            assert joint.parent < index
 
             # check if the joint has a parent
-            if self.parents[ index ] >= 0:
-                parent = self.joint( self.parents[ index ] )
+            if joint.parent >= 0:
+                # get the parent joint
+                parent = self.joint( joint.parent )
 
                 # make this joint relative to the parent
                 # rotate our position by our parents
                 rotated_position = pyrr.quaternion.apply_to_vector(
                     parent.orientation,
-                    position
+                    joint.position
                     )
 
                 # add our parent's position
-                position[:] = parent.position + rotated_position;
+                joint.position[:] = parent.position + rotated_position;
 
                 # multiply our orientation by our parent's
                 rotated_orientation = pyrr.quaternion.cross(
                     parent.orientation,
-                    orientation
+                    joint.orientation
                     )
 
                 # normalise our orientation
-                orientation[:] = pyrr.quaternion.normalise( rotated_orientation )
+                joint.orientation[:] = pyrr.quaternion.normalise( rotated_orientation )
 
     def _build_matrices( self, md5 ):
         def generate_joint_matrix( position, orientation ):
