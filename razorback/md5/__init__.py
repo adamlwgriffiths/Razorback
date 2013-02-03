@@ -160,6 +160,8 @@ class MD5_Mesh( Mesh ):
 """
 #version 150
 
+in uint in_index;
+
 // inputs
 uniform mat4 in_model_view;
 uniform mat4 in_projection;
@@ -170,10 +172,10 @@ uniform samplerBuffer in_bone_matrices;
 mat4 construct_matrix( samplerBuffer sampler, int weight_index )
 {
     mat4 matrix = mat4(
-        texelFetch( sampler, weight_index * 4 ),
-        texelFetch( sampler, weight_index * 4 + 1 ),
-        texelFetch( sampler, weight_index * 4 + 2 ),
-        texelFetch( sampler, weight_index * 4 + 3 )
+        texelFetch( sampler, (weight_index * 4) ),
+        texelFetch( sampler, (weight_index * 4) + 1 ),
+        texelFetch( sampler, (weight_index * 4) + 2 ),
+        texelFetch( sampler, (weight_index * 4) + 3 )
         );
     return matrix;
 }
@@ -192,7 +194,7 @@ mat4 get_bone_matrix( int weight_index )
 void main()
 {
     // construct our animation matrix
-    mat4 mat = get_bone_matrix( gl_VertexID );
+    mat4 mat = get_bone_matrix( int(in_index) );
 
     // apply the animatio matrix to our bind pose vertex
     gl_Position = in_projection * in_model_view * mat * vec4( 0.0, 0.0, 0.0, 1.0 );
@@ -209,7 +211,7 @@ out vec4 out_frag_colour;
 
 void main (void)
 {
-    out_frag_colour = vec4( 1.0, 1.0, 1.0, 1.0 );
+    out_frag_colour = vec4( 0.0, 1.0, 0.0, 1.0 );
 }
 
 """
@@ -218,6 +220,7 @@ void main (void)
 
         # set our shader data
         # we MUST do this before we link the shader
+        self.skeleton_shader.attributes.in_index = 0
         self.skeleton_shader.frag_location( 'out_frag_colour' )
 
         # link the shader now
@@ -234,28 +237,33 @@ void main (void)
 
         glBindVertexArray( self.vao )
 
-        self.ibo = (GLuint)()
-        glGenBuffers( 1, self.ibo )
+        self.vbo = (GLuint)()
+        glGenBuffers( 1, self.vbo )
 
         # create a skeleton from our bones
         lines = []
         for index, joint in enumerate( self.data.md5mesh.joints ):
             if joint.parent >= 0:
-                lines.append( [index, joint.parent] )
+                lines.append( [joint.parent, index] )
             else:
                 lines.append( [index, index] )
 
         self.np_lines = numpy.array( lines, dtype = 'uint32' )
 
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.ibo )
+        glBindBuffer( GL_ARRAY_BUFFER, self.vbo )
         glBufferData(
-            GL_ELEMENT_ARRAY_BUFFER,
+            GL_ARRAY_BUFFER,
             self.np_lines.nbytes,
             (GLuint * self.np_lines.size)(*self.np_lines.flat),
             GL_STATIC_DRAW
             )
 
+        # bone_indices
+        glEnableVertexAttribArray( 0 )
+        glVertexAttribIPointer( 0, 1, GL_UNSIGNED_INT, GL_FALSE, 0, 0 )
+
         glBindVertexArray( 0 )
+        glBindBuffer( GL_ARRAY_BUFFER, 0 )
 
     def render_skeleton( self, projection, model_view ):
         self.skeleton_shader.bind()
@@ -272,17 +280,8 @@ void main (void)
 
         glActiveTexture( GL_TEXTURE0 )
 
-        # bind our indices
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, self.ibo )
+        glDrawArrays( GL_LINES, 0, self.np_lines.size )
 
-        glDrawElements(
-            GL_LINES,
-            len(self.np_lines) * 2,
-            GL_UNSIGNED_INT,
-            0
-            )
-
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
         glBindVertexArray( 0 )
 
         self.skeleton_shader.unbind()
@@ -297,7 +296,7 @@ void main (void)
             if self.frame >= len(self.data.anims.frames):
                 self.frame = 0
 
-        if True:
+        if False:
             self.data.shader.bind()
 
             glActiveTexture( GL_TEXTURE3 )
@@ -314,6 +313,6 @@ void main (void)
 
             self.data.render( projection, model_view )
 
-        if False:
+        if True:
             self.render_skeleton( projection, model_view )
 
