@@ -136,10 +136,10 @@ class MD5_FrameSkeleton( object ):
                 joint.orientation[:] = pyrr.quaternion.normalise( rotated_orientation )
 
     def _build_matrices( self, md5 ):
-        def generate_joint_matrix( position, orientation ):
+        def generate_joint_matrix( joint ):
             # convert joint position and orientation to a matrix
-            position_matrix = pyrr.matrix44.create_from_translation( position )
-            orientation_matrix = pyrr.matrix44.create_from_quaternion( orientation )
+            position_matrix = pyrr.matrix44.create_from_translation( joint.position )
+            orientation_matrix = pyrr.matrix44.create_from_quaternion( joint.orientation )
 
             #return pyrr.matrix44.multiply( position_matrix, orientation_matrix )
             return pyrr.matrix44.multiply( orientation_matrix, position_matrix )
@@ -147,8 +147,8 @@ class MD5_FrameSkeleton( object ):
         # generate our frame's joint matrices
         self.matrices = numpy.array(
             [
-                generate_joint_matrix( position, orientation )
-                for position, orientation in zip( self.positions, self.orientations )
+                generate_joint_matrix( joint )
+                for joint in self
                 ],
             dtype = 'float32'
             )

@@ -160,9 +160,9 @@ class MD5_Mesh( Mesh ):
 """
 #version 150
 
+// inputs
 in uint in_index;
 
-// inputs
 uniform mat4 in_model_view;
 uniform mat4 in_projection;
 

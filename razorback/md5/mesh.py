@@ -254,6 +254,7 @@ class MD5_MeshData( object ):
             offset = calculate_offset( current_offset, 4, 4 )
             glVertexAttribPointer( 4, 4, GL_FLOAT, GL_FALSE, 0, offset )
 
+            # increment our buffer offset to the next mesh
             current_offset += mesh.num_verts
 
         # unbind
@@ -273,7 +274,7 @@ class MD5_MeshData( object ):
             # tcs
             numpy.empty( (self.md5.num_verts, 2), dtype = 'float32' ),
             # bone_indices
-            numpy.empty( (self.md5.num_verts, 4), dtype = 'int32' ),
+            numpy.empty( (self.md5.num_verts, 4), dtype = 'uint32' ),
             # bone_weights
             numpy.empty( (self.md5.num_verts, 4), dtype = 'float32' ),
             # indices
@@ -297,13 +298,15 @@ class MD5_MeshData( object ):
             bindpose.bone_indices[ start : end ] = bone_indices
             bindpose.bone_weights[ start : end ] = bone_weights
 
+            # increment our current offset by the number of vertices
+            current_vert_offset += mesh.num_verts
+
             # store our indices
             start, end = current_tri_offset, current_tri_offset + mesh.num_tris
+
             bindpose.indices[ start : end ] = mesh.tris
 
             # increment our current offset by the number of vertices
-            # in this mesh
-            current_vert_offset += mesh.num_verts
             current_tri_offset += mesh.num_tris
 
         return bindpose
