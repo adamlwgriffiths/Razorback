@@ -14,7 +14,6 @@ in vec4 in_bone_weights;
 uniform vec3 in_bone_positions[];
 uniform vec4 in_bone_orientations[];
 */
-uniform samplerBuffer in_inverse_bone_matrices;
 uniform samplerBuffer in_bone_matrices;
 
 // outputs
@@ -35,12 +34,7 @@ mat4 construct_matrix( samplerBuffer sampler, uint weight_index )
 
 mat4 get_bone_matrix( uint weight_index )
 {
-    mat4 bone_mat = construct_matrix( in_bone_matrices, weight_index );
-    mat4 inv_bone_mat = construct_matrix( in_inverse_bone_matrices, weight_index );
-    return bone_mat;// * inv_bone_mat;
-    //return inv_bone_mat;
-    //return bone_mat;
-    //return inv_bone_mat * bone_mat;
+    return construct_matrix( in_bone_matrices, weight_index );
 }
 
 void main()

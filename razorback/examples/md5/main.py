@@ -19,9 +19,11 @@ import pygly.sorter
 from pygly.texture.pil import PIL_Texture2D
 import pygly.texture
 from pyrr import matrix44
-import pymesh
 
-from razorback.md5 import MD5_Mesh
+from pymesh.md5 import MD5_Mesh, MD5_Anim
+
+from razorback.md5 import Mesh
+from razorback.md5.skeleton import Animation, BaseFrameSkeleton, SkeletonRenderer
 
 
 class MD5_Application( SimpleApplication ):
@@ -83,27 +85,54 @@ class MD5_Application( SimpleApplication ):
             self.render_node
             )
         # rotate the mesh to face the camera
-        #self.mesh_node.transform.object.rotate_y( math.pi )
         self.mesh_node.transform.object.rotate_x( -math.pi * 0.5 )
-
 
         # store a list of renderables
         mesh_path = os.path.join(
             os.path.dirname( __file__ ),
             '../data/md5/boblampclean.md5mesh'
-            #'../data/md5/md5/cyberdemon/cyberdemon.md5mesh'
             )
-
-        self.mesh_node.mesh = MD5_Mesh( mesh_path )
-        self.mesh_node.mesh.load()
 
         anim_path = os.path.join(
             os.path.dirname( __file__ ),
             '../data/md5/boblampclean.md5anim'
-            #'../data/md5/md5/cyberdemon/cyberdemon.md5mesh'
             )
 
-        self.mesh_node.mesh.data.load_anim( anim_path )
+        # load our md5 data
+        self.md5mesh = MD5_Mesh()
+        self.md5mesh.load( mesh_path )
+
+        self.md5anim = MD5_Anim()
+        self.md5anim.load( anim_path )
+
+        # load the gl mesh
+        self.mesh_node.mesh = Mesh( self.md5mesh )
+
+        # load our bindpose
+        self.mesh_node.baseframe = BaseFrameSkeleton( self.md5mesh )
+
+        # load some test skeletons
+        self.mesh_node.anim = Animation( self.md5anim )
+
+        # set to base frame
+        self.mesh_node.mesh.set_skeleton( self.mesh_node.baseframe )
+
+        # load a skeleton renderer
+        self.mesh_node.skeleton = SkeletonRenderer()
+        #self.mesh_node.skeleton.set_skeleton( self.mesh_node.baseframe )
+        self.mesh_node.skeleton.set_skeleton( self.mesh_node.anim.skeleton( 0 ) )
+
+        # create a list of frames
+        self.frames = [
+            skeleton
+            for skeleton in self.mesh_node.anim
+            ]
+        self.frames.append( self.mesh_node.baseframe )
+
+        self.frame = 0
+        self.time_accumulator = 0.0
+        self.time_per_frame = 0.2
+
 
         # attach to our scene graph
         self.grid_root.add_child( self.mesh_node )
@@ -127,6 +156,18 @@ class MD5_Application( SimpleApplication ):
 
         # this will trigger the draw event and buffer flip
         CoreApplication.step( self, dt )
+
+        if self.time_accumulator == 0.0:
+            self.mesh_node.mesh.set_skeleton( self.frames[ self.frame ] )
+            self.mesh_node.skeleton.set_skeleton( self.frames[ self.frame ] )
+
+        self.time_accumulator += dt
+        if self.time_accumulator > self.time_per_frame:
+            self.time_accumulator = 0.0
+
+            self.frame += 1
+            self.frame %= len( self.frames )
+
 
     def render_scene( self, camera ):
         """Renders each renderable in the scene
@@ -153,6 +194,7 @@ class MD5_Application( SimpleApplication ):
 
     def render_node( self, node, **kwargs ):
         node.mesh.render( **kwargs )
+        node.skeleton.render( **kwargs )
 
 
 def main():
