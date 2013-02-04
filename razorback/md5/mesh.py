@@ -46,7 +46,7 @@ class MD5_MeshData( object ):
     def __init__( self, md5mesh ):
         super( MD5_MeshData, self ).__init__()
         
-        self.md5 = md5mesh
+        self.md5mesh = md5mesh
         self.vaos = None
         self.vbos = None
 
@@ -70,7 +70,7 @@ class MD5_MeshData( object ):
                     break
 
                 weight = mesh.weight( vertex.start_weight + weight_index )
-                joint = self.md5.joint( weight.joint )
+                joint = self.md5mesh.joint( weight.joint )
 
                 # rotate the weight position by the joint quaternion
                 rotated_position = pyrr.quaternion.apply_to_vector(
@@ -128,7 +128,7 @@ class MD5_MeshData( object ):
                 # this is very similar to prepare_mesh
                 for weight_index in range( vertex.weight_count ):
                     weight = mesh.weight( vertex.start_weight + weight_index )
-                    joint = self.md5.joint( weight.joint )
+                    joint = self.md5mesh.joint( weight.joint )
 
                     # rotate the normal by the joint
                     rotated_position = pyrr.quaternion.apply_to_vector(
@@ -216,12 +216,12 @@ class MD5_MeshData( object ):
             return offset * elements * bytes
 
         # create our VAOs
-        vaos = (GLuint * self.md5.num_meshes)()
-        glGenVertexArrays( self.md5.num_meshes, vaos )
+        vaos = (GLuint * self.md5mesh.num_meshes)()
+        glGenVertexArrays( self.md5mesh.num_meshes, vaos )
 
         # bind the arrays to our VAOs
         current_offset = 0
-        for vao, mesh in zip( vaos, self.md5.meshes ):
+        for vao, mesh in zip( vaos, self.md5mesh.meshes ):
             glBindVertexArray( vao )
 
             # positions
@@ -268,22 +268,22 @@ class MD5_MeshData( object ):
         # we need to put them into the bind pose position
         bindpose = MD5_MeshData.bindpose_layout(
             # positions
-            numpy.empty( (self.md5.num_verts, 3), dtype = 'float32' ),
+            numpy.empty( (self.md5mesh.num_verts, 3), dtype = 'float32' ),
             # normals
-            numpy.empty( (self.md5.num_verts, 3), dtype = 'float32' ),
+            numpy.empty( (self.md5mesh.num_verts, 3), dtype = 'float32' ),
             # tcs
-            numpy.empty( (self.md5.num_verts, 2), dtype = 'float32' ),
+            numpy.empty( (self.md5mesh.num_verts, 2), dtype = 'float32' ),
             # bone_indices
-            numpy.empty( (self.md5.num_verts, 4), dtype = 'uint32' ),
+            numpy.empty( (self.md5mesh.num_verts, 4), dtype = 'uint32' ),
             # bone_weights
-            numpy.empty( (self.md5.num_verts, 4), dtype = 'float32' ),
+            numpy.empty( (self.md5mesh.num_verts, 4), dtype = 'float32' ),
             # indices
-            numpy.empty( (self.md5.num_tris, 3), dtype = 'uint32' )
+            numpy.empty( (self.md5mesh.num_tris, 3), dtype = 'uint32' )
             )
 
         current_vert_offset = 0
         current_tri_offset = 0
-        for mesh in self.md5.meshes:
+        for mesh in self.md5mesh.meshes:
             # generate the bind pose
             # and after that, use the bind pose to generate our normals
             positions, tcs, bone_indices, bone_weights = self._prepare_submesh( mesh )
@@ -319,7 +319,6 @@ class MD5_MeshData( object ):
             position_matrix = pyrr.matrix44.create_from_translation( joint.position )
             orientation_matrix = pyrr.matrix44.create_from_quaternion( joint.orientation )
             
-            #matrix = pyrr.matrix44.multiply( position_matrix, orientation_matrix )
             matrix = pyrr.matrix44.multiply( orientation_matrix, position_matrix )
 
             return pyrr.matrix44.inverse( matrix )
@@ -328,7 +327,7 @@ class MD5_MeshData( object ):
         return numpy.array(
             [
                 generate_inverse_bone_matrix( joint )
-                for joint in self.md5.joints
+                for joint in self.md5mesh.joints
                 ],
             dtype = 'float32'
             )

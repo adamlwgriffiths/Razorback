@@ -183,12 +183,7 @@ mat4 construct_matrix( samplerBuffer sampler, int weight_index )
 mat4 get_bone_matrix( int weight_index )
 {
     mat4 bone_mat = construct_matrix( in_bone_matrices, weight_index );
-    mat4 inv_bone_mat = construct_matrix( in_inverse_bone_matrices, weight_index );
-    //return inverse(inv_bone_mat);
-    return bone_mat * inv_bone_mat;
-    //return inv_bone_mat;
-    //return bone_mat;
-    //return inv_bone_mat * bone_mat;
+    return bone_mat;
 }
 
 void main()
@@ -228,7 +223,6 @@ void main (void)
 
         # bind our uniform indices
         self.skeleton_shader.bind()
-        self.skeleton_shader.uniforms.in_inverse_bone_matrices = 3
         self.skeleton_shader.uniforms.in_bone_matrices = 4
         self.skeleton_shader.unbind()
 
@@ -271,9 +265,6 @@ void main (void)
         self.skeleton_shader.uniforms.in_projection = projection
 
         glBindVertexArray( self.vao )
-
-        glActiveTexture( GL_TEXTURE3 )
-        glBindTexture( GL_TEXTURE_BUFFER, self.data.mesh.vbos.inverse_bone_matrices[ 1 ] )
 
         glActiveTexture( GL_TEXTURE4 )
         glBindTexture( GL_TEXTURE_BUFFER, self.data.anims.frames[ self.frame ].tbo )

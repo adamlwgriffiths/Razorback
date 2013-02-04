@@ -141,7 +141,6 @@ class MD5_FrameSkeleton( object ):
             position_matrix = pyrr.matrix44.create_from_translation( joint.position )
             orientation_matrix = pyrr.matrix44.create_from_quaternion( joint.orientation )
 
-            #return pyrr.matrix44.multiply( position_matrix, orientation_matrix )
             return pyrr.matrix44.multiply( orientation_matrix, position_matrix )
 
         # generate our frame's joint matrices
@@ -181,7 +180,7 @@ class MD5_AnimData( object ):
     def __init__( self, md5anim ):
         super( MD5_AnimData, self ).__init__()
         
-        self.md5 = md5anim
+        self.md5anim = md5anim
         self.frames = None
         #self.vaos = None
         #self.vbos = None
@@ -191,7 +190,7 @@ class MD5_AnimData( object ):
     def load( self ):
         # fill in any missing frame data for each joint
         self.frames = [
-            MD5_FrameSkeleton( self.md5, frame )
-            for frame in self.md5.frames
+            MD5_FrameSkeleton( self.md5anim, frame )
+            for frame in self.md5anim.frames
             ]
 
