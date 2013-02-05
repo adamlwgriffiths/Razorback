@@ -127,9 +127,6 @@ class Data( object ):
 
 
         for mesh in self.obj.model.meshes:
-            print 'Name:', mesh[ 'name' ]
-            print 'Groups:', mesh['groups']
-
             indices = []
 
             num_points = 0
