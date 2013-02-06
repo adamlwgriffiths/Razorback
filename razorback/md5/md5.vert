@@ -54,7 +54,7 @@ vec4 get_bone_quaternion( int weight_index )
     return bone_mat[ 1 ];
     */
     vec4 quat = texelFetch( in_bone_matrices, (weight_index * 2) + 0 );
-    quat.w = compute_w( quat.xyz );
+    //quat.w = compute_w( quat.xyz );
     return quat;
 }
 
@@ -101,6 +101,7 @@ vec4 multQuat(vec4 q1, vec4 q2)
         );
 }
 */
+/**/
 vec4 multQuat(vec4 q1, vec4 q2)
 {
     return vec4(
@@ -110,6 +111,7 @@ vec4 multQuat(vec4 q1, vec4 q2)
         q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z
         );
 }
+/**/
 
 vec3 rotate_vector( vec4 quat, vec3 vec )
 {
@@ -126,8 +128,8 @@ vec3 rotate_vector( vec4 quat, vec3 vec )
     return rotated;
 }
 */
-
-vec3 calcOrt(vec4  j, vec3 w)
+/*
+vec3 rotate_vector(vec4  j, vec3 w)
 {
     float dp = -dot(j.xyz, w);
     vec3 conj = -1.0 * j.xyz;
@@ -135,6 +137,7 @@ vec3 calcOrt(vec4  j, vec3 w)
 
     return (j.w * intVec) + (dp * conj) + cross(intVec, conj);
 }
+*/
 
 int get_bone_index( int index )
 {
