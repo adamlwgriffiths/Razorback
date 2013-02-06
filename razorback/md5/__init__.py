@@ -11,9 +11,11 @@ from pyglet.gl import *
 
 from pyrr import vector
 from pyrr import quaternion
+from pyrr import matrix44
 from pygly.shader import Shader, ShaderProgram
 
 from razorback.mesh import Mesh
+from razorback.md5.skeleton import BaseFrameSkeleton
 
 
 """
@@ -56,11 +58,13 @@ class Mesh( Mesh ):
 
         # set our shader data
         # we MUST do this before we link the shader
-        self.shader.attributes.in_position = 0
-        self.shader.attributes.in_normal = 1
-        self.shader.attributes.in_texture_coord = 2
-        self.shader.attributes.in_bone_indices = 3
-        self.shader.attributes.in_bone_weights = 4
+        self.shader.attributes.in_normal = 0
+        self.shader.attributes.in_texture_coord = 1
+        self.shader.attributes.in_bone_indices = 2
+        self.shader.attributes.in_bone_weights_1 = 3
+        self.shader.attributes.in_bone_weights_2 = 4
+        self.shader.attributes.in_bone_weights_3 = 5
+        self.shader.attributes.in_bone_weights_4 = 6
         self.shader.frag_location( 'out_frag_colour' )
 
         # link the shader now
@@ -71,13 +75,15 @@ class Mesh( Mesh ):
         self.shader.uniforms.in_diffuse = 0
         self.shader.uniforms.in_specular = 1
         self.shader.uniforms.in_normal = 2
-        self.shader.uniforms.in_bone_matrices = 3
+        self.shader.uniforms.in_bone_matrices = 4
         self.shader.unbind()
-
 
     def set_skeleton( self, skeleton ):
         # load the matrices into our texture buffer
-        matrices = skeleton.matrices
+        #matrices = skeleton.matrices
+        matrices = numpy.zeros( (skeleton.num_joints, 2, 4), dtype = 'float32' )
+        matrices[ :, 0 ] = skeleton.orientations
+        matrices[ :, 1, 0:3 ] = skeleton.positions
 
         glBindBuffer( GL_TEXTURE_BUFFER, self.vbo )
         glBufferData(
@@ -101,7 +107,7 @@ class Mesh( Mesh ):
         self.shader.uniforms.in_projection = projection
 
         # set our animation data
-        glActiveTexture( GL_TEXTURE0 + 3 )
+        glActiveTexture( GL_TEXTURE0 + 4 )
         glBindTexture( GL_TEXTURE_BUFFER, self.tbo )
 
         # render the mesh
@@ -122,11 +128,10 @@ class MeshData( object ):
     mesh_layout = namedtuple(
         'MD5_MeshData',
         [
-            'positions',
             'normals',
             'tcs',
             'bone_indices',
-            'weight_bias',
+            'weights',
             'indices'
             ]
         )
@@ -150,15 +155,18 @@ class MeshData( object ):
 
     def _generate_mesh( self ):
         def prepare_submesh( mesh ):
-            positions = numpy.zeros( (mesh.num_verts, 3), dtype = 'float32' )
             tcs = mesh.tcs
-            bone_indices = numpy.zeros( (mesh.num_verts, 4), dtype = 'uint32' )
-            weight_bias = numpy.zeros( (mesh.num_verts, 4), dtype = 'float32' )
+            # store weights as [pos.x, pos,y, pos.z, bias] * 4
+            weights = numpy.zeros( (mesh.num_verts, 4, 4), dtype = 'float32' )
+            #bone_indices = numpy.zeros( (mesh.num_verts, 4), dtype = 'uint32' )
+            bone_indices = numpy.zeros( (mesh.num_verts, 4), dtype = 'float32' )
 
             # iterate through each vertex and generate our
             # vertex position, texture coordinate, bone index and
             # bone weights
-            for vert_index, vertex in enumerate( mesh.vertices ):
+            for vert_index, (vertex, vertex_weight, bone_index) in enumerate( 
+                zip( mesh.vertices, weights, bone_indices )
+                ):
                 for weight_index in range( vertex.weight_count ):
                     # we only support 4 bones per vertex
                     # this is so we can fit it into a vec4
@@ -167,26 +175,14 @@ class MeshData( object ):
                         break
 
                     weight = mesh.weight( vertex.start_weight + weight_index )
-                    joint = self.md5mesh.joint( weight.joint )
 
-                    # rotate the weight position by the joint quaternion
-                    rotated_position = quaternion.apply_to_vector(
-                        joint.orientation,
-                        weight.position
-                        )
+                    vertex_weight[ weight_index ][ 0:3 ] = weight.position
+                    vertex_weight[ weight_index ][ 3 ] = weight.bias
+                    bone_index[ weight_index ] = weight.joint
 
-                    # add the rotated position to the joint position
-                    # apply weight bias and add to vertex position
-                    #positions[ vert_index ] += ( joint.position + rotated_position ) * weight.bias
+            return ( tcs, weights, bone_indices )
 
-                    # OVER-RIDE
-                    positions[ vert_index ] += weight.position * weight.bias
-
-                    bone_indices[ vert_index ][ weight_index ] = weight.joint
-                    weight_bias[ vert_index ][ weight_index ] = weight.bias
-
-            return ( positions, tcs, bone_indices, weight_bias )
-
+        """
         def prepare_normals( mesh, positions ):
             def generate_normals( positions, triangles ):
                 normals = numpy.zeros( positions.shape, dtype = 'float32' )
@@ -241,21 +237,19 @@ class MeshData( object ):
             normals = generate_bind_pose_normals( mesh, normals )
 
             return normals
+        """
 
-
-        # prepare our mesh vertices
-        # we need to put them into the bind pose position
+        # prepare our mesh vertex data
         mesh_data = MeshData.mesh_layout(
-            # positions
-            numpy.empty( (self.md5mesh.num_verts, 3), dtype = 'float32' ),
             # normals
             numpy.empty( (self.md5mesh.num_verts, 3), dtype = 'float32' ),
             # tcs
             numpy.empty( (self.md5mesh.num_verts, 2), dtype = 'float32' ),
             # bone_indices
-            numpy.empty( (self.md5mesh.num_verts, 4), dtype = 'uint32' ),
-            # weight bias
+            #numpy.empty( (self.md5mesh.num_verts, 4), dtype = 'uint32' ),
             numpy.empty( (self.md5mesh.num_verts, 4), dtype = 'float32' ),
+            # weights
+            numpy.empty( (self.md5mesh.num_verts, 4, 4), dtype = 'float32' ),
             # indices
             numpy.empty( (self.md5mesh.num_tris, 3), dtype = 'uint32' )
             )
@@ -265,17 +259,16 @@ class MeshData( object ):
         for mesh in self.md5mesh.meshes:
             # generate the bind pose
             # and after that, use the bind pose to generate our normals
-            positions, tcs, bone_indices, weight_bias = prepare_submesh( mesh )
-            normals = prepare_normals( mesh, positions )
+            tcs, weights, bone_indices = prepare_submesh( mesh )
+            #normals = prepare_normals( mesh, positions )
 
             # write to our arrays
             start, end = current_vert_offset, current_vert_offset + mesh.num_verts
 
-            mesh_data.positions[ start : end ] = positions
-            mesh_data.normals[ start : end ] = normals
+            #mesh_data.normals[ start : end ] = normals
             mesh_data.tcs[ start : end ] = tcs
+            mesh_data.weights[ start : end ] = weights
             mesh_data.bone_indices[ start : end ] = bone_indices
-            mesh_data.weight_bias[ start : end ] = weight_bias
 
             # increment our current offset by the number of vertices
             current_vert_offset += mesh.num_verts
@@ -311,22 +304,28 @@ class MeshData( object ):
 
         # load our vertex buffers
         # these are per-vertex values
-        vbos = (GLuint * 6)()
+        vbos = (GLuint * 5)()
         glGenBuffers( len(vbos), vbos )
-        fill_array_buffer( vbos[ 0 ], bindpose.positions, GLfloat )
-        fill_array_buffer( vbos[ 1 ], bindpose.normals, GLfloat )
-        fill_array_buffer( vbos[ 2 ], bindpose.tcs, GLfloat )
-        fill_array_buffer( vbos[ 3 ], bindpose.bone_indices, GLuint )
-        fill_array_buffer( vbos[ 4 ], bindpose.weight_bias, GLfloat )
+        #fill_array_buffer( vbos[ 0 ], bindpose.normals, GLfloat )
+        fill_array_buffer( vbos[ 1 ], bindpose.tcs, GLfloat )
+        #fill_array_buffer( vbos[ 2 ], bindpose.bone_indices, GLuint )
+        fill_array_buffer( vbos[ 2 ], bindpose.bone_indices, GLfloat )
+        fill_array_buffer( vbos[ 3 ], bindpose.weights, GLfloat )
 
         # triangle indices
-        fill_index_buffer( vbos[ 5 ], bindpose.indices, GLuint )
+        fill_index_buffer( vbos[ 4 ], bindpose.indices, GLuint )
 
         # unbind
         glBindBuffer( GL_ARRAY_BUFFER, 0 )
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 )
 
-        return MeshData.mesh_layout( *vbos )
+        return MeshData.mesh_layout(
+            vbos[ 0 ],
+            vbos[ 1 ],
+            vbos[ 2 ],
+            vbos[ 3 ],
+            vbos[ 4 ]
+            )
 
     def _generate_vaos( self, vbos ):
         def calculate_offset( offset, elements, bytes ):
@@ -341,38 +340,48 @@ class MeshData( object ):
         for vao, mesh in zip( vaos, self.md5mesh.meshes ):
             glBindVertexArray( vao )
 
-            # positions
-            glBindBuffer( GL_ARRAY_BUFFER, vbos.positions )
-            glEnableVertexAttribArray( 0 )
+            """
+            # normals
             offset = calculate_offset( current_offset, 3, 4 )
+            glBindBuffer( GL_ARRAY_BUFFER, vbos.normals )
+            glEnableVertexAttribArray( 0 )
             glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 0, offset )
+            """
 
             # tcs
+            offset = calculate_offset( current_offset, 2, 4 )
             glBindBuffer( GL_ARRAY_BUFFER, vbos.tcs )
             glEnableVertexAttribArray( 1 )
-            offset = calculate_offset( current_offset, 2, 4 )
             glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 0, offset)
 
-            # normals
-            glBindBuffer( GL_ARRAY_BUFFER, vbos.normals )
-            glEnableVertexAttribArray( 2 )
-            offset = calculate_offset( current_offset, 3, 4 )
-            glVertexAttribPointer( 2, 3, GL_FLOAT, GL_FALSE, 0, offset )
-
             # bone_indices
+            offset = calculate_offset( current_offset, 4, 4 )
             glBindBuffer( GL_ARRAY_BUFFER, vbos.bone_indices )
-            glEnableVertexAttribArray( 3 )
-            offset = calculate_offset( current_offset, 4, 4 )
-            glVertexAttribIPointer( 3, 4, GL_UNSIGNED_INT, GL_FALSE, 0, offset )
+            glEnableVertexAttribArray( 2 )
+            #glVertexAttribIPointer( 2, 4, GL_UNSIGNED_INT, GL_FALSE, 0, offset )
+            glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, 0, offset )
 
-            # weight_bias
-            glBindBuffer( GL_ARRAY_BUFFER, vbos.weight_bias )
+            # weights
+            offset = calculate_offset( current_offset, 16, 4 )
+            stride = 16 * 4
+            glBindBuffer( GL_ARRAY_BUFFER, vbos.weights )
+
+            glEnableVertexAttribArray( 3 )
+            glVertexAttribPointer( 3, 4, GL_FLOAT, GL_FALSE, stride, offset + (4 * 0) )
+
             glEnableVertexAttribArray( 4 )
-            offset = calculate_offset( current_offset, 4, 4 )
-            glVertexAttribPointer( 4, 4, GL_FLOAT, GL_FALSE, 0, offset )
+            glVertexAttribPointer( 4, 4, GL_FLOAT, GL_FALSE, stride, offset + (4 * 4) )
+
+            glEnableVertexAttribArray( 5 )
+            glVertexAttribPointer( 5, 4, GL_FLOAT, GL_FALSE, stride, offset + (4 * 8) )
+
+            glEnableVertexAttribArray( 6 )
+            glVertexAttribPointer( 6, 4, GL_FLOAT, GL_FALSE, stride, offset + (4 * 12) )
 
             # increment our buffer offset to the next mesh
             current_offset += mesh.num_verts
+
+            #break
 
         # unbind
         glBindVertexArray( 0 )
@@ -397,6 +406,8 @@ class MeshData( object ):
                 )
 
             current_offset += mesh.num_tris
+
+            #break
 
         # reset our state
         glBindVertexArray( 0 )

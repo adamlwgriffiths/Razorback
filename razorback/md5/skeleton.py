@@ -203,6 +203,10 @@ class Animation( object ):
             ]
 
     @property
+    def frame_rate( self ):
+        return self.md5anim.frame_rate
+
+    @property
     def num_frames( self ):
         return len( self.skeletons )
 
@@ -295,7 +299,10 @@ class SkeletonRenderer( object ):
 
         # bone matrices
         # load the matrices into our texture buffer
-        matrices = skeleton.matrices
+        #matrices = skeleton.matrices
+        matrices = numpy.zeros( (skeleton.num_joints, 2, 4), dtype = 'float32' )
+        matrices[ :, 0 ] = skeleton.orientations
+        matrices[ :, 1, 0:3 ] = skeleton.positions
 
         glBindBuffer( GL_TEXTURE_BUFFER, self.matrix_vbo )
         glBufferData(
