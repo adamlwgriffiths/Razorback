@@ -15,9 +15,6 @@ from pyglet.gl import *
 
 from pygly.scene_node import SceneNode
 from pygly.render_callback_node import RenderCallbackNode
-import pygly.sorter
-from pygly.texture.pil import PIL_Texture2D
-import pygly.texture
 from pyrr import matrix44
 
 from pymesh.md5 import MD5_Mesh, MD5_Anim
@@ -91,11 +88,13 @@ class MD5_Application( SimpleApplication ):
         mesh_path = os.path.join(
             os.path.dirname( __file__ ),
             '../data/md5/boblampclean.md5mesh'
+            #'../data/md5/md5/cyberdemon/cyberdemon.md5mesh'
             )
 
         anim_path = os.path.join(
             os.path.dirname( __file__ ),
             '../data/md5/boblampclean.md5anim'
+            #'../data/md5/md5/cyberdemon/idle.md5anim'
             )
 
         # load our md5 data
@@ -127,11 +126,12 @@ class MD5_Application( SimpleApplication ):
             skeleton
             for skeleton in self.mesh_node.anim
             ]
+        #self.frames = []
         self.frames.append( self.mesh_node.baseframe )
 
         self.frame = 0
         self.time_accumulator = 0.0
-        self.time_per_frame = 0.2
+        self.time_per_frame = 1.0 / self.mesh_node.anim.frame_rate
 
 
         # attach to our scene graph
