@@ -90,35 +90,11 @@ float get_weight_bias( int weight_index )
     return weights[ weight_index ].w;
 }
 
-/*
-vec4 multQuat(vec4 q1, vec4 q2)
-{
-    return vec4(
-        q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y,
-        q1.w * q2.y + q1.y * q2.w + q1.z * q2.x - q1.x * q2.z,
-        q1.w * q2.z + q1.z * q2.w + q1.x * q2.y - q1.y * q2.x,
-        q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z
-        );
-}
-*/
-/**/
-vec4 multQuat(vec4 q1, vec4 q2)
-{
-    return vec4(
-        q1.w * q2.x + q1.x * q2.w + q1.z * q2.y - q1.y * q2.z,
-        q1.w * q2.y + q1.y * q2.w + q1.x * q2.z - q1.z * q2.x,
-        q1.w * q2.z + q1.z * q2.w + q1.y * q2.x - q1.x * q2.y,
-        q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z
-        );
-}
-/**/
 
 vec3 rotate_vector( vec4 quat, vec3 vec )
 {
-    vec4 qv = multQuat(quat, vec4(vec, 0.0));
-    return multQuat(qv, vec4(-quat.x, -quat.y, -quat.z, quat.w)).xyz;
+    return vec + 2.0 * cross(cross(vec, quat.xyz ) + quat.w * vec, quat.xyz);
 }
-
 
 /*
 vec3 rotate_vector( vec4 quat, vec3 vec )

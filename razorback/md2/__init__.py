@@ -77,9 +77,9 @@ class Data( object ):
         self.indice_vbo = None
 
         self.shader = ShaderProgram(
-            False,
             Shader( GL_VERTEX_SHADER, Data.shader_source['vert'] ),
-            Shader( GL_FRAGMENT_SHADER, Data.shader_source['frag'] )
+            Shader( GL_FRAGMENT_SHADER, Data.shader_source['frag'] ),
+            link_now = False
             )
 
         # set our shader data

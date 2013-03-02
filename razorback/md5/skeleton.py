@@ -242,9 +242,9 @@ class SkeletonRenderer( object ):
 
         # load our shader
         self.shader = ShaderProgram(
-            False,
             Shader( GL_VERTEX_SHADER, SkeletonRenderer.shader_source['vert'] ),
-            Shader( GL_FRAGMENT_SHADER, SkeletonRenderer.shader_source['frag'] )
+            Shader( GL_FRAGMENT_SHADER, SkeletonRenderer.shader_source['frag'] ),
+            link_now = False
             )
 
         # set our shader data

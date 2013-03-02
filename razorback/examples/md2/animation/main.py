@@ -16,7 +16,8 @@ from pyglet.gl import *
 from pygly.scene_node import SceneNode
 from pygly.render_callback_node import RenderCallbackNode
 import pygly.sorter
-from pygly.texture.pil import PIL_Texture2D
+from pygly.texture import Texture2D
+import pygly.pil_texture
 import pygly.texture
 from pyrr import matrix44
 import pymesh
@@ -79,7 +80,7 @@ class MD2_Application( SimpleApplication ):
             '../../data/md2/sydney.bmp'
             )
         image = Image.open( path )
-        self.texture = PIL_Texture2D( GL_TEXTURE_2D )
+        self.texture = Texture2D( GL_TEXTURE_2D )
         self.texture.bind()
         self.texture.set_min_mag_filter(
             min = GL_LINEAR,
@@ -87,7 +88,7 @@ class MD2_Application( SimpleApplication ):
             )
         # load the image from PIL
         # MD2 textures are inverted
-        self.texture.set_image( image, flip = False )
+        pygly.pil_texture.set_pil_image( self.texture, image, flip = False )
         self.texture.unbind()
 
         # create a grid of cubes

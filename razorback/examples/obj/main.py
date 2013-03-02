@@ -8,7 +8,6 @@ from pygly.examples.core.application import CoreApplication
 import os
 import math
 
-from PIL import Image
 import numpy
 import pyglet
 from pyglet.gl import *
@@ -16,8 +15,6 @@ from pyglet.gl import *
 from pygly.scene_node import SceneNode
 from pygly.render_callback_node import RenderCallbackNode
 import pygly.sorter
-from pygly.texture.pil import PIL_Texture2D
-import pygly.texture
 from pyrr import matrix44
 import pymesh
 

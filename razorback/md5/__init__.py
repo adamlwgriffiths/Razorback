@@ -51,9 +51,9 @@ class Mesh( Mesh ):
         glGenTextures( 1, self.tbo )
 
         self.shader = ShaderProgram(
-            False,
             Shader( GL_VERTEX_SHADER, Mesh.shader_source['vert'] ),
-            Shader( GL_FRAGMENT_SHADER, Mesh.shader_source['frag'] )
+            Shader( GL_FRAGMENT_SHADER, Mesh.shader_source['frag'] ),
+            link_now = False
             )
 
         # set our shader data
@@ -392,7 +392,7 @@ class MeshData( object ):
     def render( self ):
         # bind our vertex attributes
         current_offset = 0
-        for vao, mesh in zip( self.vaos, self.md5mesh.meshes ):
+        for index, (vao, mesh) in enumerate( zip( self.vaos, self.md5mesh.meshes ) ):
             # num indices = num tris * 3 indices per tri
             # offset = offset * 3 indices per tri * 4 bytes per element
             # bind our indices
