@@ -1,12 +1,12 @@
 [submodule "contrib/pyglet"]
 	path = contrib/pyglet
-	url = git@github.com:adamlwgriffiths/Pyglet.git
+	url = git://github.com/adamlwgriffiths/Pyglet.git
 [submodule "contrib/Pyrr"]
 	path = contrib/Pyrr
-	url = git@github.com:adamlwgriffiths/Pyrr.git
+	url = git://github.com/adamlwgriffiths/Pyrr.git
 [submodule "contrib/PyGLy"]
 	path = contrib/PyGLy
-	url = git@github.com:adamlwgriffiths/PyGLy.git
+	url = git://github.com/adamlwgriffiths/PyGLy.git
 [submodule "contrib/PyMesh"]
 	path = contrib/PyMesh
-	url = git@github.com:adamlwgriffiths/PyMesh.git
+	url = git://github.com/adamlwgriffiths/PyMesh.git
