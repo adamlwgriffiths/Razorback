@@ -1,7 +1,5 @@
 '''
 Renders a debug cube for visualising 3D coodinates.
-
-.. moduleauthor:: Adam Griffiths <adam.lw.griffiths@gmail.com>
 '''
 
 from pyglet.gl import *
