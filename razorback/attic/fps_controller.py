@@ -1,7 +1,5 @@
 """Controls a transform to provide a 'First Person Shooter-like'
 interface.
-
-.. moduleauthor:: Adam Griffiths <adam.lw.griffiths@gmail.com>
 """
 
 import math

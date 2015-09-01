@@ -1,7 +1,5 @@
 '''
 Renders axis information for visualising 3D coordinates.
-
-.. moduleauthor:: Adam Griffiths <adam.lw.griffiths@gmail.com>
 '''
 
 from itertools import repeat

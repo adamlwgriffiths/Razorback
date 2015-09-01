@@ -1,7 +1,5 @@
 """Controls a transform to provide a 6 degree of freedom
 interface.
-
-.. moduleauthor:: Adam Griffiths <adam.lw.griffiths@gmail.com>
 """
 
 import math
